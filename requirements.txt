@@ -1,0 +1,12 @@
+streamlit
+pandas
+numpy
+plotly
+altair
+streamlit-elements
+streamlit-extras
+streamlit-plotly-events
+streamlit-aggrid
+streamlit-option-menu
+lifetimes
+scikit-learn
