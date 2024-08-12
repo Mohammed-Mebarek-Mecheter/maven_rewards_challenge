@@ -1,0 +1,12 @@
+# .streamlit/config.toml
+[theme]
+primaryColor = "#3e2a1e"  # Deep Coffee
+backgroundColor = "#f9f5f0"  # Ivory
+secondaryBackgroundColor = "#ffffff"  # White
+textColor = "#3e2a1e"  # Deep Coffee
+font = "serif"
+
+
+
+
+
