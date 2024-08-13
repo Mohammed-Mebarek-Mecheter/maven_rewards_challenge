@@ -31,6 +31,7 @@ def plot_offer_performance(performance_df):
     return fig
 
 def plot_transaction_time_series(transaction_df):
+    transaction_df['time'] = pd.to_datetime(transaction_df['time'], unit='h')
     daily_transactions = transaction_df.set_index('time').resample('D')['amount'].sum().reset_index()
 
     fig = px.line(daily_transactions, x='time', y='amount',

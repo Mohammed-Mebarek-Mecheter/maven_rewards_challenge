@@ -48,7 +48,7 @@ def analyze_offer_performance(df):
 def analyze_customer_lifetime_value(transaction_df):
     clv = transaction_df.groupby('customer_id').agg({
         'amount': 'sum',
-        'time': lambda x: (x.max() - x.min()).days / 365.25
+        'age': 'mean'  # Use the 'age' column directly
     })
     clv.columns = ['total_spend', 'customer_age']
     clv['annual_value'] = clv['total_spend'] / clv['customer_age']

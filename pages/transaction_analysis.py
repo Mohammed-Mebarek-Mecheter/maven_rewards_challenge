@@ -1,99 +1,93 @@
 # pages/transaction_analysis.py
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import altair as alt
+from st_aggrid import AgGrid, GridOptionsBuilder
 from sklearn.cluster import KMeans
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
-from io import BytesIO
 from utils.visualizations import plot_transaction_time_series
 from utils.data_processor import preprocess_transaction_events, analyze_customer_lifetime_value
+from utils.pdf_generator import generate_pdf_report
 
-def export_to_csv(dataframe, filename):
-    csv = dataframe.to_csv(index=False)
-    st.download_button(
-        label=f"Download {filename}",
-        data=csv,
-        file_name=filename,
-        mime='text/csv'
-    )
+# Caching data processing functions
+@st.cache_data
+def preprocess_and_filter_transactions(transaction_events, min_amount, max_amount, min_frequency, max_frequency):
+    transaction_events = preprocess_transaction_events(transaction_events)
+    filtered_transactions = transaction_events[(transaction_events['amount'] >= min_amount) &
+                                               (transaction_events['amount'] <= max_amount)]
+    transaction_counts = filtered_transactions['customer_id'].value_counts()
+    filtered_customers = transaction_counts[(transaction_counts >= min_frequency) &
+                                            (transaction_counts <= max_frequency)].index
+    filtered_transactions = filtered_transactions[filtered_transactions['customer_id'].isin(filtered_customers)]
+    return filtered_transactions
 
-def export_to_pdf(dataframe, title):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter)
-    elements = []
+@st.cache_resource
+def plot_weekly_transaction_trend(filtered_transactions):
+    weekly_transactions = filtered_transactions.set_index('time').resample('W')['amount'].sum().reset_index()
+    weekly_chart = alt.Chart(weekly_transactions).mark_area(
+        line={'color': '#3d2c1f'},
+        color=alt.Gradient(
+            gradient='linear',
+            stops=[alt.GradientStop(color='#f0e6db', offset=0),
+                   alt.GradientStop(color='#3d2c1f', offset=1)],
+            x1=1,
+            x2=1,
+            y1=1,
+            y2=0
+        )
+    ).encode(
+        x=alt.X('time:T', title='Date'),
+        y=alt.Y('amount:Q', title='Total Transaction Amount ($)'),
+        tooltip=[alt.Tooltip('time:T', title='Date'), alt.Tooltip('amount:Q', title='Amount', format='$,.2f')]
+    ).properties(title='Weekly Transaction Trend')
+    return weekly_chart
 
-    styles = getSampleStyleSheet()
-    elements.append(Paragraph(title, styles['Title']))
-    elements.append(Spacer(1, 12))
+@st.cache_resource
+def plot_basket_analysis(basket_data):
+    scatter = alt.Chart(basket_data).mark_circle(size=60).encode(
+        x=alt.X('transaction_count:Q', title='Number of Transactions'),
+        y=alt.Y('avg_basket_size:Q', title='Average Basket Size ($)'),
+        color=alt.Color('cluster:N', scale=alt.Scale(scheme='viridis'), title='Segment'),
+        tooltip=['transaction_count', 'avg_basket_size', 'cluster']
+    ).properties(title='Customer Segments based on Transaction Behavior')
 
-    data = [dataframe.columns.tolist()] + dataframe.values.tolist()
-    t = Table(data)
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
-        ('TOPPADDING', (0, 1), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-    elements.append(t)
-
-    doc.build(elements)
-
-    pdf = buffer.getvalue()
-    buffer.close()
-
-    st.download_button(
-        label=f"Download {title}.pdf",
-        data=pdf,
-        file_name=f"{title}.pdf",
-        mime='application/pdf'
-    )
+    return scatter
 
 def transaction_analysis_page(offer_events, transaction_events):
-    st.title("Transaction Analysis")
+    st.title("Transaction Analysis Dashboard")
 
     # Sidebar for filters
-    st.sidebar.header("Filters")
-    min_transaction_amount = st.sidebar.slider("Min Transaction Amount", 0, int(transaction_events['amount'].max()), 0)
-    max_transaction_amount = st.sidebar.slider("Max Transaction Amount", 0, int(transaction_events['amount'].max()), int(transaction_events['amount'].max()))
+    st.sidebar.header("⚙️ Filters")
+    min_transaction_amount = st.sidebar.slider("Min Transaction Amount ($)", 0, int(transaction_events['amount'].max()), 0)
+    max_transaction_amount = st.sidebar.slider("Max Transaction Amount ($)", 0, int(transaction_events['amount'].max()), int(transaction_events['amount'].max()))
     min_transaction_frequency = st.sidebar.slider("Min Transaction Frequency", 0, int(transaction_events['customer_id'].value_counts().max()), 0)
     max_transaction_frequency = st.sidebar.slider("Max Transaction Frequency", 0, int(transaction_events['customer_id'].value_counts().max()), int(transaction_events['customer_id'].value_counts().max()))
 
-    # Preprocess transaction events
-    transaction_events = preprocess_transaction_events(transaction_events)
+    # Preprocess and filter transaction events
+    filtered_transactions = preprocess_and_filter_transactions(transaction_events, min_transaction_amount, max_transaction_amount, min_transaction_frequency, max_transaction_frequency)
 
-    # Filter data
-    filtered_transactions = transaction_events[(transaction_events['amount'] >= min_transaction_amount) &
-                                               (transaction_events['amount'] <= max_transaction_amount)]
-    transaction_counts = filtered_transactions['customer_id'].value_counts()
-    filtered_customers = transaction_counts[(transaction_counts >= min_transaction_frequency) &
-                                            (transaction_counts <= max_transaction_frequency)].index
-    filtered_transactions = filtered_transactions[filtered_transactions['customer_id'].isin(filtered_customers)]
+    # Transaction Overview
+    st.header("📊 Transaction Overview")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Transactions", f"{len(filtered_transactions):,}")
+    col2.metric("Total Revenue", f"${filtered_transactions['amount'].sum():,.2f}")
+    col3.metric("Average Transaction Value", f"${filtered_transactions['amount'].mean():.2f}")
 
     # Time series analysis of transactions
-    st.header("Time Series Analysis of Transactions")
-    fig_time_series = plot_transaction_time_series(filtered_transactions)
-    st.plotly_chart(fig_time_series)
+    st.header("📈 Transaction Trends")
+    col1, col2 = st.columns(2)
 
-    # Weekly trend
-    weekly_transactions = filtered_transactions.set_index('time').resample('W')['amount'].sum().reset_index()
-    fig_weekly = px.line(weekly_transactions, x='time', y='amount', title='Weekly Transaction Trend')
-    st.plotly_chart(fig_weekly)
+    with col1:
+        st.subheader("Daily Transactions")
+        fig_time_series = plot_transaction_time_series(filtered_transactions)
+        st.plotly_chart(fig_time_series, use_container_width=True)
+
+    with col2:
+        st.subheader("Weekly Trend")
+        fig_weekly = plot_weekly_transaction_trend(filtered_transactions)
+        st.altair_chart(fig_weekly, use_container_width=True)
 
     # Basket Analysis
-    st.header("Basket Analysis")
+    st.header("🛒 Customer Segmentation")
     transaction_counts = filtered_transactions.groupby('customer_id').size().reset_index(name='transaction_count')
     transaction_amounts = filtered_transactions.groupby('customer_id')['amount'].sum().reset_index()
     basket_data = pd.merge(transaction_counts, transaction_amounts, on='customer_id')
@@ -103,53 +97,62 @@ def transaction_analysis_page(offer_events, transaction_events):
     kmeans = KMeans(n_clusters=4, random_state=42)
     basket_data['cluster'] = kmeans.fit_predict(basket_data[['transaction_count', 'avg_basket_size']])
 
-    fig_basket = px.scatter(basket_data, x='transaction_count', y='avg_basket_size', color='cluster',
-                            title='Customer Segments based on Transaction Behavior',
-                            labels={'transaction_count': 'Number of Transactions',
-                                    'avg_basket_size': 'Average Basket Size ($)'},
-                            color_discrete_sequence=px.colors.qualitative.Set1)
-    st.plotly_chart(fig_basket)
+    col1, col2 = st.columns(2)
 
-    # Display cluster characteristics
-    st.subheader("Cluster Characteristics:")
-    cluster_stats = basket_data.groupby('cluster')[['transaction_count', 'avg_basket_size']].mean().round(2)
-    st.write(cluster_stats)
+    with col1:
+        fig_basket = plot_basket_analysis(basket_data)
+        st.altair_chart(fig_basket, use_container_width=True)
+
+    with col2:
+        st.subheader("Segment Characteristics")
+        cluster_stats = basket_data.groupby('cluster')[['transaction_count', 'avg_basket_size']].mean().round(2)
+        cluster_stats.columns = ['Avg. Transactions', 'Avg. Basket Size ($)']
+        cluster_stats.index.name = 'Segment'
+
+        gb = GridOptionsBuilder.from_dataframe(cluster_stats)
+        gb.configure_default_column(min_column_width=120)
+        gridOptions = gb.build()
+
+        AgGrid(cluster_stats, gridOptions=gridOptions, height=300)
 
     # Customer Lifetime Value (CLV) Analysis
-    st.header("Customer Lifetime Value (CLV) Analysis")
-
-    # Calculate CLV
+    st.header("💰 Customer Lifetime Value Analysis")
     clv_data = analyze_customer_lifetime_value(filtered_transactions)
 
-    # Display CLV distribution
     if not clv_data.empty:
-        fig_clv = px.histogram(clv_data, x='total_spend', nbins=30, title='Distribution of Customer Lifetime Value')
-        fig_clv.update_layout(xaxis_title="Total Spend ($)", yaxis_title="Frequency")
-        st.plotly_chart(fig_clv)
+        col1, col2 = st.columns(2)
+
+        with col1:
+            fig_clv = alt.Chart(clv_data).mark_bar().encode(
+                x=alt.X('total_spend:Q', bin=alt.Bin(maxbins=20), title='Total Spend ($)'),
+                y=alt.Y('count()', title='Number of Customers'),
+                color=alt.value('#3d2c1f')
+            ).properties(title='Distribution of Customer Lifetime Value')
+            st.altair_chart(fig_clv, use_container_width=True)
+
+        with col2:
+            st.subheader("Top Customers by CLV")
+            top_customers = clv_data.sort_values(by='total_spend', ascending=False).head(10)
+            if 'customer_id' in top_customers.columns:
+                gb = GridOptionsBuilder.from_dataframe(top_customers[['customer_id', 'total_spend', 'annual_value']])
+                gb.configure_default_column(min_column_width=120)
+                gridOptions = gb.build()
+
+                AgGrid(top_customers[['customer_id', 'total_spend', 'annual_value']],
+                       gridOptions=gridOptions,
+                       height=300)
+            else:
+                st.write(top_customers)
     else:
         st.write("No data available for CLV analysis in the selected filters.")
 
-    # Display top customers by CLV
-    st.subheader("Top Customers by CLV")
-    top_customers = clv_data.sort_values(by='total_spend', ascending=False).head(10)
-    if 'customer_id' in top_customers.columns:
-        st.write(top_customers[['customer_id', 'total_spend', 'annual_value']])
-    else:
-        st.write(top_customers)  # Just display the DataFrame if 'customer_id' is not available
-
     # Export options
-    st.sidebar.header("Export Options")
-    if st.sidebar.button("Export Transaction Data to CSV"):
-        export_to_csv(filtered_transactions, "filtered_transactions.csv")
-
-    if st.sidebar.button("Export Basket Data to CSV"):
-        export_to_csv(basket_data, "basket_data.csv")
-
-    if st.sidebar.button("Export CLV Data to CSV"):
-        export_to_csv(clv_data, "clv_data.csv")
-
-    if st.sidebar.button("Export Cluster Characteristics to PDF"):
-        export_to_pdf(cluster_stats.reset_index(), "Cluster Characteristics")
-
-    if st.sidebar.button("Export Top Customers by CLV to PDF"):
-        export_to_pdf(top_customers[['customer_id', 'total_spend', 'annual_value']] if 'customer_id' in top_customers.columns else top_customers, "Top Customers by CLV")
+    st.sidebar.header("📤 Export Options")
+    if st.sidebar.button("Generate PDF Report"):
+        pdf_buffer = generate_pdf_report(filtered_transactions, basket_data, clv_data, cluster_stats)
+        st.sidebar.download_button(
+            label="Download PDF Report",
+            data=pdf_buffer,
+            file_name="transaction_analysis_report.pdf",
+            mime="application/pdf"
+        )
