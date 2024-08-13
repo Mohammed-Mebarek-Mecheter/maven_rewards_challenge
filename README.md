@@ -91,6 +91,7 @@ The app can be deployed on Streamlit Cloud or any other platform that supports P
 4. Deploy the app.
 
 The app is currently live and accessible at [Maven Rewards Analysis App](https://mavencafe.streamlit.app/).
+and on my Maven Analytics portfolio here [Maven Portfolio](https://mavenanalytics.io/project/18347).
 
 ## License
 
