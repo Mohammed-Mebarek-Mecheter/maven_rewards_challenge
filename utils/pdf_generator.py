@@ -127,7 +127,7 @@ def generate_offer_performance_pdf(top_offer_type, top_segment, top_channel,
     return pdf
 
 def generate_customer_segments_pdf(rfm_data, segment_data, filtered_offers,
-                                   rfm_chart, age_chart, income_chart, offer_response_chart, cohort_chart):
+                                   rfm_chart, age_chart, income_chart):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     elements = []
@@ -162,9 +162,7 @@ def generate_customer_segments_pdf(rfm_data, segment_data, filtered_offers,
     for title, chart in [
         ("Customer Segments (RFM Analysis)", rfm_chart),
         ("Age Distribution", age_chart),
-        ("Income Distribution by Gender", income_chart),
-        ("Offer Success Rate by Customer Segment", offer_response_chart),
-        ("Cohort Analysis by Customer Segment", cohort_chart)
+        ("Income Distribution by Gender", income_chart)
     ]:
         elements.append(Paragraph(title, styles['Heading2']))
         elements.append(Spacer(1, 12))

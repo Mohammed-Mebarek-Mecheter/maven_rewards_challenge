@@ -1,0 +1,128 @@
+/* assets/style.css */
+
+/* General styles */
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+    color: var(--primary-color);
+}
+
+/* Headings */
+.stHeader {
+    font-family: 'Playfair Display', serif;
+    color: var(--primary-color);
+}
+
+/* Metrics */
+.stMetric {
+    background-color: var(--secondary-background-color);
+    border-radius: 5px;
+    padding: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stMetric label {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+/* Charts */
+.stChart {
+    background-color: var(--secondary-background-color);
+    border-radius: 5px;
+    padding: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Sidebar */
+.sidebar .sidebar-content {
+    background-color: var(--secondary-background-color);
+}
+
+/* Buttons */
+.stButton > button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.stButton > button:hover {
+    background-color: var(--secondary-background-color);
+    color: var(--primary-color);
+}
+
+/* DataFrames and Tables */
+.dataframe {
+    font-family: 'Roboto Mono', monospace;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.dataframe th, .dataframe td {
+    border: 1px solid var(--secondary-background-color);
+    padding: 8px;
+    text-align: left;
+}
+
+.dataframe th {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.dataframe tr:nth-child(even) {
+    background-color: var(--secondary-background-color);
+}
+
+/* Custom classes for themes */
+.classic-coffeehouse {
+    --primary-color: #3d2c1f;
+    --background-color: #f0e6db;
+    --secondary-background-color: #ffffff;
+    --text-color: #3d2c1f;
+}
+
+.elegant-espresso {
+    --primary-color: #4b3a28;
+    --background-color: #f5f1e8;
+    --secondary-background-color: #ffffff;
+    --text-color: #4b3a28;
+}
+
+.modern-brew {
+    --primary-color: #5c3d2e;
+    --background-color: #e8e4e1;
+    --secondary-background-color: #ffffff;
+    --text-color: #5c3d2e;
+}
+
+.rustic-roast {
+    --primary-color: #6f4f28;
+    --background-color: #dcd6c7;
+    --secondary-background-color: #ffffff;
+    --text-color: #6f4f28;
+}
+
+.vintage-latte {
+    --primary-color: #3e2a1e;
+    --background-color: #f9f5f0;
+    --secondary-background-color: #ffffff;
+    --text-color: #3e2a1e;
+}
+
+col {
+
+    background-color: var(--secondary-background-color);
+    border-radius: 5px;
+    padding: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}

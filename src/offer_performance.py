@@ -1,39 +1,42 @@
 # src/offer_performance.py
 import streamlit as st
+import openai
 import pandas as pd
 import altair as alt
 from st_aggrid import AgGrid, GridOptionsBuilder
 from datetime import timedelta
 from utils.data_loader import load_all_data
-from utils.data_processor import analyze_offer_performance, create_customer_segments, preprocess_transaction_events, preprocess_offer_events
+from utils.data_processor import analyze_offer_performance, create_customer_segments, preprocess_transaction_events, \
+    preprocess_offer_events
 from utils.pdf_generator import generate_offer_performance_pdf
 
-# Caching data processing functions
-@st.cache_data
+
 def get_preprocessed_data():
     offer_events, transaction_events = load_all_data()
     offer_events = preprocess_offer_events(offer_events)
     transaction_events = preprocess_transaction_events(transaction_events)
     return offer_events, transaction_events
 
-@st.cache_data
+
 def generate_insights(offer_events, transaction_events):
     rfm_data = create_customer_segments(offer_events, transaction_events)
-    offer_events_with_cluster = offer_events.merge(rfm_data[['cluster']], left_on='customer_id', right_index=True, how='left')
+    offer_events_with_cluster = offer_events.merge(rfm_data[['cluster']], left_on='customer_id', right_index=True,
+                                                   how='left')
 
     success_rate = offer_events_with_cluster.groupby('offer_type')['offer_success'].mean().sort_values(ascending=False)
     top_offer_type = success_rate.idxmax()
 
-    conversion_by_segment = offer_events_with_cluster.groupby('cluster')['offer_success'].mean().sort_values(ascending=False)
+    conversion_by_segment = offer_events_with_cluster.groupby('cluster')['offer_success'].mean().sort_values(
+        ascending=False)
     top_segment = conversion_by_segment.idxmax()
 
-    channel_success = offer_events_with_cluster.explode('channels').groupby('channels')['offer_success'].mean().sort_values(ascending=False)
+    channel_success = offer_events_with_cluster.explode('channels').groupby('channels')[
+        'offer_success'].mean().sort_values(ascending=False)
     top_channel = channel_success.idxmax()
 
     return top_offer_type, top_segment, top_channel, offer_events_with_cluster
 
 # Altair visualizations with Theme Colors
-@st.cache_resource
 def plot_success_rate_by_offer_type(offer_events_with_cluster, primary_color):
     success_rate = offer_events_with_cluster.groupby('offer_type')['offer_success'].mean().reset_index()
     return alt.Chart(success_rate).mark_bar(color=primary_color).encode(
@@ -43,21 +46,10 @@ def plot_success_rate_by_offer_type(offer_events_with_cluster, primary_color):
                  alt.Tooltip('offer_success:Q', title='Success Rate', format='.2%')]
     ).properties(title='Offer Success Rate by Type')
 
-@st.cache_resource
-def plot_offer_performance_by_cluster(performance_df, primary_color):
-    return alt.Chart(performance_df).mark_rect().encode(
-        x=alt.X('cluster:N', title='Customer Segment'),
-        y=alt.Y('offer_type:N', title='Offer Type', sort='-x'),
-        color=alt.Color('conversion_rate:Q', title='Conversion Rate', scale=alt.Scale(scheme='greens')),
-        tooltip=[alt.Tooltip('cluster:N', title='Customer Segment'),
-                 alt.Tooltip('offer_type:N', title='Offer Type'),
-                 alt.Tooltip('conversion_rate:Q', title='Conversion Rate', format='.2%'),
-                 alt.Tooltip('total_offers:Q', title='Total Offers')]
-    ).properties(title='Offer Performance by Customer Segment').configure_mark(color=primary_color)
 
-@st.cache_resource
 def plot_channel_effectiveness(offer_events_with_cluster, primary_color):
-    channel_success = offer_events_with_cluster.explode('channels').groupby('channels')['offer_success'].mean().reset_index()
+    channel_success = offer_events_with_cluster.explode('channels').groupby('channels')[
+        'offer_success'].mean().reset_index()
     return alt.Chart(channel_success).mark_bar(color=primary_color).encode(
         x=alt.X('channels:N', title='Channel', sort='-y'),
         y=alt.Y('offer_success:Q', title='Success Rate', axis=alt.Axis(format='.0%')),
@@ -78,7 +70,8 @@ def offer_performance_page():
     # Sidebar for customizations
     st.sidebar.header("⚙️ Filters")
     time_range = st.sidebar.slider("Select Time Range (days)", min_value=1, max_value=30, value=(1, 30))
-    selected_offer_types = st.sidebar.multiselect("Select Offer Types", options=offer_events['offer_type'].unique(), default=offer_events['offer_type'].unique())
+    selected_offer_types = st.sidebar.multiselect("Select Offer Types", options=offer_events['offer_type'].unique(),
+                                                  default=offer_events['offer_type'].unique())
 
     # Convert time_range to datetime objects
     min_date = offer_events['time'].min().date()
@@ -91,14 +84,18 @@ def offer_performance_page():
     filtered_transactions = transaction_events[transaction_events['time'].dt.date.between(start_date, end_date)]
 
     # Generate dynamic insights
-    top_offer_type, top_segment, top_channel, offer_events_with_cluster = generate_insights(filtered_offers, filtered_transactions)
+    top_offer_type, top_segment, top_channel, offer_events_with_cluster = generate_insights(filtered_offers,
+                                                                                            filtered_transactions)
 
     # Display the insights
     st.header("📊 Key Insights")
     col1, col2, col3 = st.columns(3)
-    col1.metric("Top Offer Type", top_offer_type, f"{offer_events_with_cluster.groupby('offer_type')['offer_success'].mean()[top_offer_type]:.2%}")
-    col2.metric("Best Responding Segment", f"Segment {top_segment}", f"{offer_events_with_cluster.groupby('cluster')['offer_success'].mean()[top_segment]:.2%}")
-    col3.metric("Most Effective Channel", top_channel, f"{offer_events_with_cluster.explode('channels').groupby('channels')['offer_success'].mean()[top_channel]:.2%}")
+    col1.metric("Top Offer Type", top_offer_type,
+                f"{offer_events_with_cluster.groupby('offer_type')['offer_success'].mean()[top_offer_type]:.2%}")
+    col2.metric("Best Responding Segment", f"Segment {top_segment}",
+                f"{offer_events_with_cluster.groupby('cluster')['offer_success'].mean()[top_segment]:.2%}")
+    col3.metric("Most Effective Channel", top_channel,
+                f"{offer_events_with_cluster.explode('channels').groupby('channels')['offer_success'].mean()[top_channel]:.2%}")
 
     # Offer Success Rate by Type
     st.header("📈 Offer Performance Analysis")
@@ -114,28 +111,26 @@ def offer_performance_page():
         channel_chart = plot_channel_effectiveness(offer_events_with_cluster, primary_color)
         st.altair_chart(channel_chart, use_container_width=True)
 
-    # Conversion Rates by Offer Type and Customer Segment
-    st.subheader("Offer Performance by Customer Segment")
-    performance_df = analyze_offer_performance(offer_events_with_cluster)
-    performance_chart = plot_offer_performance_by_cluster(performance_df, primary_color)
-    st.altair_chart(performance_chart, use_container_width=True)
-
     # Display filtered data with AgGrid
     st.header("🔍 Detailed Data View")
+    # Update the 'time' column in offer_events_with_cluster to show hours only
+    offer_events_with_cluster['time'] = offer_events_with_cluster['time'].dt.hour
+
     gb = GridOptionsBuilder.from_dataframe(offer_events_with_cluster)
     gb.configure_pagination(paginationAutoPageSize=True)
     gb.configure_side_bar()
     gb.configure_default_column(groupable=True, value=True, enableRowGroup=True, aggFunc="sum", editable=True)
     gridOptions = gb.build()
-    AgGrid(offer_events_with_cluster, gridOptions=gridOptions, theme="streamlit", height=400, enable_enterprise_modules=True)
+    AgGrid(offer_events_with_cluster, gridOptions=gridOptions, theme="streamlit", height=400,
+               enable_enterprise_modules=True)
 
     # Export options
     st.sidebar.header("📤 Export Options")
     if st.sidebar.button("Generate PDF Report"):
         pdf_buffer = generate_offer_performance_pdf(
             top_offer_type, top_segment, top_channel,
-            offer_events_with_cluster, performance_df,
-            success_rate_chart, channel_chart, performance_chart
+            offer_events_with_cluster,
+            success_rate_chart, channel_chart
         )
         st.sidebar.download_button(
             label="Download PDF Report",
@@ -146,3 +141,4 @@ def offer_performance_page():
 
 if __name__ == "__main__":
     offer_performance_page()
+

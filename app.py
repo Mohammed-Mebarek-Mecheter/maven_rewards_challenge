@@ -10,6 +10,13 @@ from utils.data_processor import preprocess_offer_events, preprocess_transaction
 # Set page config
 st.set_page_config(page_title="Maven Rewards Challenge", page_icon=":coffee:", layout="wide")
 
+def load_css():
+    with open("assets/style.css") as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# Call this function at the beginning of your app
+load_css()
+
 # Custom CSS for Maven Cafe Rewards theme
 st.markdown("""
     <style>
@@ -73,7 +80,7 @@ def main():
         div1, div2 = st.columns([1, 5])
 
         with div1:
-            st.image("https://cdn.dribbble.com/userupload/4292674/file/original-73b8de0fd0cdd3e288a127e95e2cabc7.jpg?resize=752x", width=100)
+            st.image("https://images.ctfassets.net/p80c52b4itd3/3tay5qlhYeC8yxOQJXmv4v/11eaa9683c8b34d513aae63f9fd26297/barista.jpg", width=100)
         with div2:
             st.markdown('<p class="main-header">Maven Rewards Challenge</p>', unsafe_allow_html=True)
             st.markdown('<p class="sub-header">Data-Driven Marketing Strategy</p>', unsafe_allow_html=True)

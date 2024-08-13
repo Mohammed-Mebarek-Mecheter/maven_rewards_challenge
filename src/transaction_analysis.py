@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+from statsmodels.tsa.arima.model import ARIMA
 from st_aggrid import AgGrid, GridOptionsBuilder
 from sklearn.cluster import KMeans
 from utils.visualizations import plot_transaction_time_series
@@ -9,7 +10,6 @@ from utils.data_processor import preprocess_transaction_events, analyze_customer
 from utils.pdf_generator import generate_pdf_report
 
 # Caching data processing functions
-@st.cache_data
 def preprocess_and_filter_transactions(transaction_events, min_amount, max_amount, min_frequency, max_frequency):
     transaction_events = preprocess_transaction_events(transaction_events)
     filtered_transactions = transaction_events[(transaction_events['amount'] >= min_amount) &
@@ -21,7 +21,6 @@ def preprocess_and_filter_transactions(transaction_events, min_amount, max_amoun
     return filtered_transactions
 
 # Weekly Transaction Trend with Theme Colors
-@st.cache_resource
 def plot_weekly_transaction_trend(filtered_transactions, primary_color, secondary_color):
     weekly_transactions = filtered_transactions.set_index('time').resample('W')['amount'].sum().reset_index()
     weekly_chart = alt.Chart(weekly_transactions).mark_area(
@@ -43,7 +42,6 @@ def plot_weekly_transaction_trend(filtered_transactions, primary_color, secondar
     return weekly_chart
 
 # Basket Analysis with Theme Colors
-@st.cache_resource
 def plot_basket_analysis(basket_data, primary_color):
     scatter = alt.Chart(basket_data).mark_circle(size=60).encode(
         x=alt.X('transaction_count:Q', title='Number of Transactions'),
@@ -59,7 +57,7 @@ def transaction_analysis_page(offer_events, transaction_events):
     primary_color = st.get_option("theme.primaryColor")
     secondary_color = st.get_option("theme.backgroundColor")
 
-    st.title("Transaction Analysis Dashboard")
+    st.title("Transaction Analysis")
 
     # Sidebar for filters
     st.sidebar.header("⚙️ Filters")
@@ -80,7 +78,7 @@ def transaction_analysis_page(offer_events, transaction_events):
 
     # Time series analysis of transactions
     st.header("📈 Transaction Trends")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         st.subheader("Daily Transactions")
@@ -91,6 +89,26 @@ def transaction_analysis_page(offer_events, transaction_events):
         st.subheader("Weekly Trend")
         fig_weekly = plot_weekly_transaction_trend(filtered_transactions, primary_color, secondary_color)
         st.altair_chart(fig_weekly, use_container_width=True)
+
+    with col3:
+        st.subheader("Transaction Forecast")
+        daily_transactions = filtered_transactions.set_index('time')['amount'].resample('D').sum()
+        model = ARIMA(daily_transactions, order=(1, 1, 1))
+        results = model.fit()
+        forecast = results.forecast(steps=30)
+
+        forecast_df = pd.DataFrame({'date': forecast.index, 'forecast': forecast.values})
+        historical_df = pd.DataFrame({'date': daily_transactions.index, 'actual': daily_transactions.values})
+
+        forecast_chart = alt.Chart(forecast_df).mark_line(color='secondary_color').encode(
+            x='date:T',
+            y='forecast:Q'
+        )
+        historical_chart = alt.Chart(historical_df).mark_line(color='primary_color').encode(
+            x='date:T',
+            y='actual:Q'
+        )
+        st.altair_chart(historical_chart + forecast_chart, use_container_width=True)
 
     # Basket Analysis
     st.header("🛒 Customer Segmentation")
@@ -129,11 +147,12 @@ def transaction_analysis_page(offer_events, transaction_events):
         col1, col2 = st.columns(2)
 
         with col1:
+            st.subheader("Distribution of CLV")
             fig_clv = alt.Chart(clv_data).mark_bar().encode(
                 x=alt.X('total_spend:Q', bin=alt.Bin(maxbins=20), title='Total Spend ($)'),
                 y=alt.Y('count()', title='Number of Customers'),
                 color=alt.value(primary_color)
-            ).properties(title='Distribution of Customer Lifetime Value')
+            ).properties(title='')
             st.altair_chart(fig_clv, use_container_width=True)
 
         with col2:
@@ -162,3 +181,4 @@ def transaction_analysis_page(offer_events, transaction_events):
             file_name="transaction_analysis_report.pdf",
             mime="application/pdf"
         )
+
