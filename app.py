@@ -1,9 +1,9 @@
 # app.py
 import streamlit as st
 from streamlit_option_menu import option_menu
-from pages.customer_segments import customer_segments_page
-from pages.offer_performance import offer_performance_page
-from pages.transaction_analysis import transaction_analysis_page
+from src.customer_segments import customer_segments_page
+from src.offer_performance import offer_performance_page
+from src.transaction_analysis import transaction_analysis_page
 from utils.data_loader import load_all_data
 from utils.data_processor import preprocess_offer_events, preprocess_transaction_events
 

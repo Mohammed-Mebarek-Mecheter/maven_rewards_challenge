@@ -1,4 +1,4 @@
-# pages/transaction_analysis.py
+# src/transaction_analysis.py
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -20,15 +20,16 @@ def preprocess_and_filter_transactions(transaction_events, min_amount, max_amoun
     filtered_transactions = filtered_transactions[filtered_transactions['customer_id'].isin(filtered_customers)]
     return filtered_transactions
 
+# Weekly Transaction Trend with Theme Colors
 @st.cache_resource
-def plot_weekly_transaction_trend(filtered_transactions):
+def plot_weekly_transaction_trend(filtered_transactions, primary_color, secondary_color):
     weekly_transactions = filtered_transactions.set_index('time').resample('W')['amount'].sum().reset_index()
     weekly_chart = alt.Chart(weekly_transactions).mark_area(
-        line={'color': '#3d2c1f'},
+        line={'color': primary_color},
         color=alt.Gradient(
             gradient='linear',
-            stops=[alt.GradientStop(color='#f0e6db', offset=0),
-                   alt.GradientStop(color='#3d2c1f', offset=1)],
+            stops=[alt.GradientStop(color=secondary_color, offset=0),
+                   alt.GradientStop(color=primary_color, offset=1)],
             x1=1,
             x2=1,
             y1=1,
@@ -41,18 +42,23 @@ def plot_weekly_transaction_trend(filtered_transactions):
     ).properties(title='Weekly Transaction Trend')
     return weekly_chart
 
+# Basket Analysis with Theme Colors
 @st.cache_resource
-def plot_basket_analysis(basket_data):
+def plot_basket_analysis(basket_data, primary_color):
     scatter = alt.Chart(basket_data).mark_circle(size=60).encode(
         x=alt.X('transaction_count:Q', title='Number of Transactions'),
         y=alt.Y('avg_basket_size:Q', title='Average Basket Size ($)'),
-        color=alt.Color('cluster:N', scale=alt.Scale(scheme='viridis'), title='Segment'),
+        color=alt.Color('cluster:N', scale=alt.Scale(scheme='dark2'), title='Segment'),
         tooltip=['transaction_count', 'avg_basket_size', 'cluster']
     ).properties(title='Customer Segments based on Transaction Behavior')
-
+    scatter = scatter.configure_mark(color=primary_color)
     return scatter
 
 def transaction_analysis_page(offer_events, transaction_events):
+    # Determine theme colors
+    primary_color = st.get_option("theme.primaryColor")
+    secondary_color = st.get_option("theme.backgroundColor")
+
     st.title("Transaction Analysis Dashboard")
 
     # Sidebar for filters
@@ -78,12 +84,12 @@ def transaction_analysis_page(offer_events, transaction_events):
 
     with col1:
         st.subheader("Daily Transactions")
-        fig_time_series = plot_transaction_time_series(filtered_transactions)
+        fig_time_series = plot_transaction_time_series(filtered_transactions, primary_color)
         st.plotly_chart(fig_time_series, use_container_width=True)
 
     with col2:
         st.subheader("Weekly Trend")
-        fig_weekly = plot_weekly_transaction_trend(filtered_transactions)
+        fig_weekly = plot_weekly_transaction_trend(filtered_transactions, primary_color, secondary_color)
         st.altair_chart(fig_weekly, use_container_width=True)
 
     # Basket Analysis
@@ -100,7 +106,7 @@ def transaction_analysis_page(offer_events, transaction_events):
     col1, col2 = st.columns(2)
 
     with col1:
-        fig_basket = plot_basket_analysis(basket_data)
+        fig_basket = plot_basket_analysis(basket_data, primary_color)
         st.altair_chart(fig_basket, use_container_width=True)
 
     with col2:
@@ -126,7 +132,7 @@ def transaction_analysis_page(offer_events, transaction_events):
             fig_clv = alt.Chart(clv_data).mark_bar().encode(
                 x=alt.X('total_spend:Q', bin=alt.Bin(maxbins=20), title='Total Spend ($)'),
                 y=alt.Y('count()', title='Number of Customers'),
-                color=alt.value('#3d2c1f')
+                color=alt.value(primary_color)
             ).properties(title='Distribution of Customer Lifetime Value')
             st.altair_chart(fig_clv, use_container_width=True)
 

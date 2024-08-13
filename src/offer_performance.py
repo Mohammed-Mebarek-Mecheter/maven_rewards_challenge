@@ -1,4 +1,4 @@
-# pages/offer_performance.py
+# src/offer_performance.py
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -32,42 +32,44 @@ def generate_insights(offer_events, transaction_events):
 
     return top_offer_type, top_segment, top_channel, offer_events_with_cluster
 
-# Altair visualizations
+# Altair visualizations with Theme Colors
 @st.cache_resource
-def plot_success_rate_by_offer_type(offer_events_with_cluster):
+def plot_success_rate_by_offer_type(offer_events_with_cluster, primary_color):
     success_rate = offer_events_with_cluster.groupby('offer_type')['offer_success'].mean().reset_index()
-    return alt.Chart(success_rate).mark_bar().encode(
+    return alt.Chart(success_rate).mark_bar(color=primary_color).encode(
         x=alt.X('offer_type:N', title='Offer Type', sort='-y'),
         y=alt.Y('offer_success:Q', title='Success Rate', axis=alt.Axis(format='.0%')),
-        color=alt.Color('offer_type:N', scale=alt.Scale(scheme='viridis'), legend=None),
         tooltip=[alt.Tooltip('offer_type:N', title='Offer Type'),
                  alt.Tooltip('offer_success:Q', title='Success Rate', format='.2%')]
     ).properties(title='Offer Success Rate by Type')
 
 @st.cache_resource
-def plot_offer_performance_by_cluster(performance_df):
+def plot_offer_performance_by_cluster(performance_df, primary_color):
     return alt.Chart(performance_df).mark_rect().encode(
         x=alt.X('cluster:N', title='Customer Segment'),
         y=alt.Y('offer_type:N', title='Offer Type', sort='-x'),
-        color=alt.Color('conversion_rate:Q', title='Conversion Rate', scale=alt.Scale(scheme='viridis')),
+        color=alt.Color('conversion_rate:Q', title='Conversion Rate', scale=alt.Scale(scheme='greens')),
         tooltip=[alt.Tooltip('cluster:N', title='Customer Segment'),
                  alt.Tooltip('offer_type:N', title='Offer Type'),
                  alt.Tooltip('conversion_rate:Q', title='Conversion Rate', format='.2%'),
                  alt.Tooltip('total_offers:Q', title='Total Offers')]
-    ).properties(title='Offer Performance by Customer Segment')
+    ).properties(title='Offer Performance by Customer Segment').configure_mark(color=primary_color)
 
 @st.cache_resource
-def plot_channel_effectiveness(offer_events_with_cluster):
+def plot_channel_effectiveness(offer_events_with_cluster, primary_color):
     channel_success = offer_events_with_cluster.explode('channels').groupby('channels')['offer_success'].mean().reset_index()
-    return alt.Chart(channel_success).mark_bar().encode(
+    return alt.Chart(channel_success).mark_bar(color=primary_color).encode(
         x=alt.X('channels:N', title='Channel', sort='-y'),
         y=alt.Y('offer_success:Q', title='Success Rate', axis=alt.Axis(format='.0%')),
-        color=alt.Color('channels:N', scale=alt.Scale(scheme='category10'), legend=None),
         tooltip=[alt.Tooltip('channels:N', title='Channel'),
                  alt.Tooltip('offer_success:Q', title='Success Rate', format='.2%')]
     ).properties(title='Channel Effectiveness')
 
 def offer_performance_page():
+    # Determine theme colors
+    primary_color = st.get_option("theme.primaryColor")
+    secondary_color = st.get_option("theme.backgroundColor")
+
     st.title("Offer Performance Analysis")
 
     # Load and preprocess data
@@ -104,18 +106,18 @@ def offer_performance_page():
 
     with col1:
         st.subheader("Success Rate by Offer Type")
-        success_rate_chart = plot_success_rate_by_offer_type(offer_events_with_cluster)
+        success_rate_chart = plot_success_rate_by_offer_type(offer_events_with_cluster, primary_color)
         st.altair_chart(success_rate_chart, use_container_width=True)
 
     with col2:
         st.subheader("Channel Effectiveness")
-        channel_chart = plot_channel_effectiveness(offer_events_with_cluster)
+        channel_chart = plot_channel_effectiveness(offer_events_with_cluster, primary_color)
         st.altair_chart(channel_chart, use_container_width=True)
 
     # Conversion Rates by Offer Type and Customer Segment
     st.subheader("Offer Performance by Customer Segment")
     performance_df = analyze_offer_performance(offer_events_with_cluster)
-    performance_chart = plot_offer_performance_by_cluster(performance_df)
+    performance_chart = plot_offer_performance_by_cluster(performance_df, primary_color)
     st.altair_chart(performance_chart, use_container_width=True)
 
     # Display filtered data with AgGrid

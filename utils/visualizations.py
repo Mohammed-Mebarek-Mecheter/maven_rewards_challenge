@@ -30,14 +30,16 @@ def plot_offer_performance(performance_df):
 
     return fig
 
-def plot_transaction_time_series(transaction_df):
+def plot_transaction_time_series(transaction_df, primary_color):
     transaction_df['time'] = pd.to_datetime(transaction_df['time'], unit='h')
     daily_transactions = transaction_df.set_index('time').resample('D')['amount'].sum().reset_index()
 
     fig = px.line(daily_transactions, x='time', y='amount',
                   labels={'time': 'Date', 'amount': 'Total Transaction Amount'},
-                  title='Daily Transaction Amounts Over Time')
+                  title='Daily Transaction Amounts Over Time',
+                  line_shape="spline")
 
+    fig.update_traces(line_color=primary_color)
     fig.update_layout(xaxis_rangeslider_visible=True)
 
     return fig

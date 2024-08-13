@@ -1,4 +1,4 @@
-# pages/customer_segments.py
+# src/customer_segments.py
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -13,30 +13,34 @@ def preprocess_offer_data(offer_events, selected_offer_types):
 def preprocess_transaction_data(transaction_events, min_amount, max_amount):
     return transaction_events.query("amount >= @min_amount and amount <= @max_amount")
 
-def plot_age_distribution(filtered_data):
-    return alt.Chart(filtered_data).mark_bar().encode(
+def plot_age_distribution(filtered_data, primary_color):
+    return alt.Chart(filtered_data).mark_bar(color=primary_color).encode(
         x=alt.X('age:Q', bin=alt.Bin(maxbins=20), title='Age'),
         y=alt.Y('count()', title='Number of Customers'),
-        color=alt.value('#3d2c1f')
+        tooltip=[alt.Tooltip('age:Q', title='Age'), alt.Tooltip('count()', title='Number of Customers')]
     ).properties(title='Age Distribution')
 
-def plot_income_distribution(filtered_data):
+def plot_income_distribution(filtered_data, primary_color):
     return alt.Chart(filtered_data).mark_boxplot(size=50).encode(
         y=alt.Y('income:Q', title='Income'),
         x=alt.X('gender:N', title='Gender'),
-        color=alt.Color('gender:N', scale=alt.Scale(scheme='viridis'))
+        color=alt.Color('gender:N', scale=alt.Scale(scheme='viridis'), legend=None),
+        tooltip=[alt.Tooltip('income:Q', title='Income'), alt.Tooltip('gender:N', title='Gender')]
     ).properties(title='Income Distribution by Gender')
 
-def plot_rfm_clusters(rfm_data):
+def plot_rfm_clusters(rfm_data, primary_color):
     return alt.Chart(rfm_data).mark_circle(size=60).encode(
         x=alt.X('recency:Q', title='Recency (days)'),
         y=alt.Y('frequency:Q', title='Frequency (transactions)'),
         color=alt.Color('cluster:N', scale=alt.Scale(scheme='category10'), title='Customer Segment'),
         size=alt.Size('monetary:Q', title='Monetary Value'),
         tooltip=['recency', 'frequency', 'monetary', 'cluster']
-    ).properties(title='RFM Clusters')
+    ).properties(title='RFM Clusters').configure_mark(color=primary_color)
 
 def customer_segments_page():
+    # Determine theme colors
+    primary_color = st.get_option("theme.primaryColor")
+
     st.title("Customer Segmentation Dashboard")
 
     # Load Data
@@ -63,7 +67,7 @@ def customer_segments_page():
 
     # RFM Cluster Visualization
     st.header("🎯 Customer Segments")
-    rfm_chart = plot_rfm_clusters(rfm_data)
+    rfm_chart = plot_rfm_clusters(rfm_data, primary_color)
     st.altair_chart(rfm_chart, use_container_width=True)
 
     # Segment Explorer
@@ -91,11 +95,11 @@ def customer_segments_page():
     col1, col2 = st.columns(2)
 
     with col1:
-        age_chart = plot_age_distribution(preprocess_offer_data(offer_events, selected_offer_types))
+        age_chart = plot_age_distribution(preprocess_offer_data(offer_events, selected_offer_types), primary_color)
         st.altair_chart(age_chart, use_container_width=True)
 
     with col2:
-        income_chart = plot_income_distribution(preprocess_offer_data(offer_events, selected_offer_types))
+        income_chart = plot_income_distribution(preprocess_offer_data(offer_events, selected_offer_types), primary_color)
         st.altair_chart(income_chart, use_container_width=True)
 
     # Export options
@@ -103,8 +107,8 @@ def customer_segments_page():
     if st.sidebar.button("Generate PDF Report"):
         pdf_buffer = generate_customer_segments_pdf(
             rfm_data, segment_data, preprocess_offer_data(offer_events, selected_offer_types),
-            plot_rfm_clusters(rfm_data), plot_age_distribution(preprocess_offer_data(offer_events, selected_offer_types)),
-            plot_income_distribution(preprocess_offer_data(offer_events, selected_offer_types))
+            plot_rfm_clusters(rfm_data, primary_color), plot_age_distribution(preprocess_offer_data(offer_events, selected_offer_types), primary_color),
+            plot_income_distribution(preprocess_offer_data(offer_events, selected_offer_types), primary_color)
         )
         st.sidebar.download_button(
             label="Download PDF Report",
