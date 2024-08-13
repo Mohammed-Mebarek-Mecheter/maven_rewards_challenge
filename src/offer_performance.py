@@ -1,6 +1,5 @@
 # src/offer_performance.py
 import streamlit as st
-import openai
 import pandas as pd
 import altair as alt
 from st_aggrid import AgGrid, GridOptionsBuilder

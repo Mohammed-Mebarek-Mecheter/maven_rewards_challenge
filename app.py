@@ -131,13 +131,15 @@ def show_home_page(offer_events, transaction_events):
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
+        total_customers = len(offer_events["customer_id"].unique())
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.markdown(f'<p class="metric-value">{len(offer_events["customer_id"].unique()):,}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p class="metric-value">{total_customers:,}</p>', unsafe_allow_html=True)
         st.markdown('<p class="metric-label">Total Customers</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        conversion_rate = offer_events[offer_events['event'] == 'offer completed'].shape[0] / offer_events[offer_events['event'] == 'offer received'].shape[0]
+        conversion_rate = offer_events[offer_events['event'] == 'offer completed'].shape[0] / \
+                          offer_events[offer_events['event'] == 'offer received'].shape[0]
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
         st.markdown(f'<p class="metric-value">{conversion_rate:.2%}</p>', unsafe_allow_html=True)
         st.markdown('<p class="metric-label">Overall Offer Conversion Rate</p>', unsafe_allow_html=True)
