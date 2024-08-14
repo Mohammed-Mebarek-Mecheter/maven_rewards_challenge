@@ -10,7 +10,9 @@ from utils.data_processor import (
 )
 from utils.visualizations import (
     plot_success_rate_by_offer_type,
-    plot_offer_completion_by_channel
+    plot_offer_completion_by_channel,
+    plot_segment_distribution,
+    plot_channel_success_over_time
 )
 from utils.pdf_generator import generate_offer_performance_pdf
 from st_aggrid import AgGrid, GridOptionsBuilder
@@ -54,7 +56,6 @@ def filter_data(offer_events, transaction_events, start_date, end_date, selected
                                    (offer_events['offer_type'].isin(selected_offer_types))]
     filtered_transactions = transaction_events[transaction_events['time'].dt.date.between(start_date, end_date)]
     return filtered_offers, filtered_transactions
-
 
 def offer_performance_page():
     st.title("Offer Performance Analysis")
@@ -105,18 +106,19 @@ def offer_performance_page():
         channel_chart = plot_offer_completion_by_channel(offer_events_with_cluster)
         st.altair_chart(channel_chart, use_container_width=True)
 
-    # # Display filtered data with AgGrid
-    # st.header("🔍 Detailed Data View")
-    # # Update the 'time' column in offer_events_with_cluster to show hours only
-    # offer_events_with_cluster['time'] = offer_events_with_cluster['time'].dt.hour
-    #
-    # gb = GridOptionsBuilder.from_dataframe(offer_events_with_cluster)
-    # gb.configure_pagination(paginationAutoPageSize=True)
-    # gb.configure_side_bar()
-    # gb.configure_default_column(groupable=True, value=True, enableRowGroup=True, aggFunc="sum", editable=True)
-    # gridOptions = gb.build()
-    # AgGrid(offer_events_with_cluster, gridOptions=gridOptions, theme="streamlit", height=400,
-    #        enable_enterprise_modules=True)
+    # Replace the large AgGrid table with two efficient visualizations
+    st.header("🔍 Detailed Data View")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Customer Segment Distribution")
+        segment_distribution_chart = plot_segment_distribution(offer_events_with_cluster)
+        st.altair_chart(segment_distribution_chart, use_container_width=True)
+
+    with col2:
+        st.subheader("Channel Success Rate Over Time")
+        channel_success_chart = plot_channel_success_over_time(offer_events_with_cluster)
+        st.altair_chart(channel_success_chart, use_container_width=True)
 
     # Export options
     st.sidebar.header("📤 Export Options")

@@ -20,7 +20,7 @@ def plot_income_distribution(filtered_data):
     return alt.Chart(filtered_data).mark_boxplot(size=50).encode(
         y=alt.Y('income:Q', title='Income'),
         x=alt.X('gender:N', title='Gender'),
-        color=alt.Color('gender:N', scale=alt.Scale(scheme='viridis'), legend=None),
+        color=alt.Color('gender:N', scale=alt.Scale(scheme='browns'), legend=None),
         tooltip=[alt.Tooltip('income:Q', title='Income'), alt.Tooltip('gender:N', title='Gender')]
     ).properties(title='Income Distribution by Gender')
 
@@ -30,7 +30,7 @@ def plot_rfm_clusters(rfm_data):
     return alt.Chart(rfm_data).mark_circle(size=60).encode(
         x=alt.X('recency:Q', title='Recency (days)'),
         y=alt.Y('frequency:Q', title='Frequency (transactions)'),
-        color=alt.Color('cluster:N', scale=alt.Scale(scheme='category10'), title='Customer Segment'),
+        color=alt.Color('cluster:N', scale=alt.Scale(scheme='browns'), title='Customer Segment'),
         size=alt.Size('monetary:Q', title='Monetary Value'),
         tooltip=['recency', 'frequency', 'monetary', 'cluster']
     ).properties(title='RFM Clusters').configure_mark(color=primary_color)
@@ -163,7 +163,7 @@ def plot_basket_analysis(basket_data):
     scatter = alt.Chart(basket_data).mark_circle(size=60).encode(
         x=alt.X('transaction_count:Q', title='Number of Transactions'),
         y=alt.Y('avg_basket_size:Q', title='Average Basket Size ($)'),
-        color=alt.Color('cluster:N', scale=alt.Scale(scheme='dark2'), title='Segment'),
+        color=alt.Color('cluster:N', scale=alt.Scale(scheme='browns'), title='Segment'),
         tooltip=['transaction_count', 'avg_basket_size', 'cluster']
     ).properties(title='Customer Segments based on Transaction Behavior')
     scatter = scatter.configure_mark(color=primary_color)
@@ -196,3 +196,69 @@ def plot_transaction_time_series(transaction_df):
     )
 
     return fig
+
+@st.cache_data
+def plot_segment_distribution(offer_events_with_cluster):
+    primary_color = st.get_option("theme.primaryColor")
+    rfm_data = offer_events_with_cluster['cluster'].value_counts().reset_index()
+    rfm_data.columns = ['cluster', 'count']
+
+    return alt.Chart(rfm_data).mark_bar(color=primary_color).encode(
+        x=alt.X('cluster:N', title='Customer Segment'),
+        y=alt.Y('count:Q', title='Number of Customers'),
+        tooltip=['cluster', 'count']
+    ).properties(title='Customer Segment Distribution')
+
+
+@st.cache_data
+def plot_channel_success_over_time(offer_events_with_cluster):
+    primary_color = st.get_option("theme.primaryColor")
+    offer_events_with_cluster['time'] = offer_events_with_cluster['time'].dt.hour
+    exploded_df = offer_events_with_cluster.explode('channels')
+    channel_success_over_time = exploded_df.groupby(['time', 'channels'])['offer_success'].mean().reset_index()
+
+    return alt.Chart(channel_success_over_time).mark_line().encode(
+        x=alt.X('time:Q', title='Time (hours)'),
+        y=alt.Y('offer_success:Q', title='Success Rate', axis=alt.Axis(format='.0%')),
+        color=alt.Color('channels:N', title='Channel', scale=alt.Scale(scheme='browns')),
+        tooltip=['time', 'channels', 'offer_success']
+    ).properties(title='Channel Success Rate Over Time')
+
+@st.cache_data
+def plot_segment_characteristics(cluster_stats):
+    primary_color = st.get_option("theme.primaryColor")
+    melted_stats = cluster_stats.reset_index().melt(id_vars='Segment', var_name='Metric', value_name='Value')
+
+    chart = alt.Chart(melted_stats).mark_bar(color=primary_color).encode(
+        x=alt.X('Segment:N', title='Customer Segment'),
+        y=alt.Y('Value:Q', title='Value'),
+        column=alt.Column('Metric:N', title=None),
+        tooltip=['Segment', 'Metric', 'Value']
+    ).properties(
+        title='Segment Characteristics',
+        width=200
+    ).configure_view(
+        strokeWidth=0  # Remove border around the chart
+    )
+
+    return chart
+
+
+def plot_segment_radar(cluster_stats):
+    melted_stats = cluster_stats.reset_index().melt(id_vars='Segment', var_name='Metric', value_name='Value')
+
+    base = alt.Chart(melted_stats).encode(
+        theta=alt.Theta('Metric:N', type='nominal'),
+        radius=alt.Radius('Value:Q', scale=alt.Scale(type='sqrt', zero=True, nice=False)),
+        tooltip=['Segment', 'Metric', 'Value']
+    )
+
+    chart = base.mark_line(point=True).encode(
+        opacity=alt.value(0.7)
+    ).properties(
+        width=400,
+        height=400,
+        title='Segment Characteristics Radar'
+    )
+
+    return chart

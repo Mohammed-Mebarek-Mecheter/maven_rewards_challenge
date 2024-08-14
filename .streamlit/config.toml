@@ -2,8 +2,8 @@
 [theme]
 primaryColor = "#6f4f28"  # Warm Brown
 backgroundColor = "#dcd6c7"  # Pale Taupe
-secondaryBackgroundColor = "#ffffff"  # White
-textColor = "#000"  # Warm Brown
+secondaryBackgroundColor = "#f5f1e8"  # White
+textColor = "#000"  # Black
 font = "robonto"
 
 [server]

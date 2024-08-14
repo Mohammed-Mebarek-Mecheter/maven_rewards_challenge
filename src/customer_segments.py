@@ -74,6 +74,10 @@ def customer_segments_page():
         gb.configure_pagination(paginationAutoPageSize=True)
         gb.configure_side_bar()
         gb.configure_default_column(groupable=True, value=True, enableRowGroup=True, aggFunc="sum", editable=True)
+        gb.configure_grid_options(
+            rowStyle={"color": "#6f4f28", "background-color": "#dcd6c7"},
+            headerStyle={"color": "#000", "background-color": "#dcd6c7"},
+        )
         gridOptions = gb.build()
         col1, col2 = st.columns(2)
 
@@ -97,16 +101,14 @@ def customer_segments_page():
         income_chart = plot_income_distribution(filtered_offers)
         st.altair_chart(income_chart, use_container_width=True)
 
+
     # Export options
     st.sidebar.header("📤 Export Options")
     if st.sidebar.button("Generate PDF Report"):
         pdf_buffer = generate_customer_segments_pdf(
             rfm_data,
             segment_data,
-            filtered_offers,
-            plot_rfm_clusters(rfm_data),
-            plot_age_distribution(filtered_offers),
-            plot_income_distribution(filtered_offers)
+            filtered_offers
         )
         st.sidebar.download_button(
             label="Download PDF Report",

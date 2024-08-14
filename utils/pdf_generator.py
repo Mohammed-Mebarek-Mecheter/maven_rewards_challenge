@@ -126,8 +126,7 @@ def generate_offer_performance_pdf(top_offer_type, top_segment, top_channel,
     buffer.close()
     return pdf
 
-def generate_customer_segments_pdf(rfm_data, segment_data, filtered_offers,
-                                   rfm_chart, age_chart, income_chart):
+def generate_customer_segments_pdf(rfm_data, segment_data, filtered_offers):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     elements = []
@@ -158,18 +157,45 @@ def generate_customer_segments_pdf(rfm_data, segment_data, filtered_offers,
     elements.append(metrics_table)
     elements.append(Spacer(1, 12))
 
-    # Charts
-    for title, chart in [
-        ("Customer Segments (RFM Analysis)", rfm_chart),
-        ("Age Distribution", age_chart),
-        ("Income Distribution by Gender", income_chart)
-    ]:
-        elements.append(Paragraph(title, styles['Heading2']))
-        elements.append(Spacer(1, 12))
-        img = tempfile.NamedTemporaryFile(suffix=".png")
-        chart.save(img.name)
-        elements.append(Image(img.name, width=400, height=200))
-        elements.append(Spacer(1, 12))
+    # Segment Summary
+    elements.append(Paragraph("Segment Summary", styles['Heading2']))
+    segment_summary = rfm_data.groupby('cluster').agg({
+        'recency': 'mean',
+        'frequency': 'mean',
+        'monetary': 'mean'
+    }).reset_index()
+    segment_summary_data = [['Segment', 'Avg. Recency', 'Avg. Frequency', 'Avg. Monetary']] + \
+                           segment_summary.values.tolist()
+    segment_summary_table = Table(segment_summary_data)
+    segment_summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    elements.append(segment_summary_table)
+    elements.append(Spacer(1, 12))
+
+    # Demographic Summary
+    elements.append(Paragraph("Demographic Summary", styles['Heading2']))
+    age_summary = filtered_offers['age'].describe().reset_index()
+    age_summary_data = age_summary.values.tolist()
+    age_summary_table = Table(age_summary_data)
+    age_summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    elements.append(age_summary_table)
 
     doc.build(elements)
     pdf = buffer.getvalue()

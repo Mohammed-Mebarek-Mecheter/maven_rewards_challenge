@@ -9,7 +9,8 @@ from utils.visualizations import (
     plot_transaction_time_series,
     plot_weekly_transaction_trend,
     plot_basket_analysis,
-    plot_clv_distribution
+    plot_clv_distribution,
+    plot_segment_characteristics
 )
 from utils.data_processor import (
     preprocess_transaction_events,
@@ -20,14 +21,12 @@ from utils.pdf_generator import generate_pdf_report
 
 
 @st.cache_data
-def preprocess_and_filter_transactions(transaction_events, min_amount, max_amount, min_frequency, max_frequency):
+def preprocess_and_filter_transactions(transaction_events, start_date, end_date, transaction_amount_range):
     transaction_events = preprocess_transaction_events(transaction_events)
-    filtered_transactions = transaction_events[(transaction_events['amount'] >= min_amount) &
-                                               (transaction_events['amount'] <= max_amount)]
-    transaction_counts = filtered_transactions['customer_id'].value_counts()
-    filtered_customers = transaction_counts[(transaction_counts >= min_frequency) &
-                                            (transaction_counts <= max_frequency)].index
-    filtered_transactions = filtered_transactions[filtered_transactions['customer_id'].isin(filtered_customers)]
+    filtered_transactions = transaction_events[
+        (transaction_events['time'].dt.date.between(start_date, end_date)) &
+        (transaction_events['amount'].between(transaction_amount_range[0], transaction_amount_range[1]))
+    ]
     return filtered_transactions
 
 
@@ -46,20 +45,17 @@ def transaction_analysis_page(offer_events, transaction_events):
 
     # Sidebar for filters
     st.sidebar.header("⚙️ Filters")
-    min_transaction_amount = st.sidebar.slider("Min Transaction Amount ($)", 0, int(transaction_events['amount'].max()),
-                                               0)
-    max_transaction_amount = st.sidebar.slider("Max Transaction Amount ($)", 0, int(transaction_events['amount'].max()),
-                                               int(transaction_events['amount'].max()))
-    min_transaction_frequency = st.sidebar.slider("Min Transaction Frequency", 0,
-                                                  int(transaction_events['customer_id'].value_counts().max()), 0)
-    max_transaction_frequency = st.sidebar.slider("Max Transaction Frequency", 0,
-                                                  int(transaction_events['customer_id'].value_counts().max()),
-                                                  int(transaction_events['customer_id'].value_counts().max()))
+    time_range = st.sidebar.slider("Select Time Range", min_value=1, max_value=30, value=(1, 30))
+    min_date = transaction_events['time'].min().date()
+    start_date = min_date + pd.to_timedelta(time_range[0] - 1, unit='D')
+    end_date = min_date + pd.to_timedelta(time_range[1] - 1, unit='D')
+
+    transaction_amount_range = st.sidebar.slider("Transaction Amount ($)", 0, int(transaction_events['amount'].max()),
+                                                 (0, int(transaction_events['amount'].max())))
 
     # Preprocess and filter transaction events
-    filtered_transactions = preprocess_and_filter_transactions(transaction_events, min_transaction_amount,
-                                                               max_transaction_amount, min_transaction_frequency,
-                                                               max_transaction_frequency)
+    filtered_transactions = preprocess_and_filter_transactions(transaction_events, start_date, end_date,
+                                                                transaction_amount_range)
 
     # Transaction Overview
     st.header("📊 Transaction Overview")
@@ -87,11 +83,11 @@ def transaction_analysis_page(offer_events, transaction_events):
         daily_transactions = filtered_transactions.set_index('time')['amount'].resample('D').sum()
         forecast_df, historical_df = generate_forecast(daily_transactions)
 
-        forecast_chart = alt.Chart(forecast_df).mark_line(color='black').encode(
+        forecast_chart = alt.Chart(forecast_df).mark_line(color='#000').encode(
             x='date:T',
             y='forecast:Q'
         )
-        historical_chart = alt.Chart(historical_df).mark_line(color='brown').encode(
+        historical_chart = alt.Chart(historical_df).mark_line(color='#6f4f28').encode(
             x='date:T',
             y='actual:Q'
         )
@@ -101,23 +97,18 @@ def transaction_analysis_page(offer_events, transaction_events):
     st.header("🛒 Customer Segmentation")
     basket_data = create_basket_data(filtered_transactions)
 
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([1, 1])
 
     with col1:
         fig_basket = plot_basket_analysis(basket_data)
         st.altair_chart(fig_basket, use_container_width=True)
 
     with col2:
-        st.subheader("Segment Characteristics")
         cluster_stats = basket_data.groupby('cluster')[['transaction_count', 'avg_basket_size']].mean().round(2)
         cluster_stats.columns = ['Avg. Transactions', 'Avg. Basket Size ($)']
         cluster_stats.index.name = 'Segment'
-
-        gb = GridOptionsBuilder.from_dataframe(cluster_stats)
-        gb.configure_default_column(min_column_width=120)
-        gridOptions = gb.build()
-
-        AgGrid(cluster_stats, gridOptions=gridOptions, height=300)
+        fig_segment_radar = plot_segment_characteristics(cluster_stats)
+        st.altair_chart(fig_segment_radar, use_container_width=True)
 
     # Customer Lifetime Value (CLV) Analysis
     st.header("💰 Customer Lifetime Value Analysis")
@@ -160,4 +151,4 @@ def transaction_analysis_page(offer_events, transaction_events):
 
 
 if __name__ == "__main__":
-    transaction_analysis_page(None, None)  # You may need to adjust this based on how you're loading the data
+    transaction_analysis_page()
