@@ -4,14 +4,17 @@ import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+import ast
 
 @st.cache_data
 def preprocess_offer_data(offer_events, selected_offer_types):
     return offer_events.query("offer_type in @selected_offer_types")
 
+
 @st.cache_data
 def preprocess_transaction_data(transaction_events, min_amount, max_amount):
     return transaction_events.query("amount >= @min_amount and amount <= @max_amount")
+
 
 @st.cache_data
 def preprocess_offer_events(df):
@@ -21,11 +24,13 @@ def preprocess_offer_events(df):
                             df['duration'].apply(lambda x: pd.Timedelta(days=x))))
     return df
 
+
 @st.cache_data
 def preprocess_transaction_events(df):
     df['time'] = pd.to_datetime(df['time'], unit='h')
     df['total_spend'] = df.groupby('customer_id')['amount'].transform('sum')
     return df
+
 
 @st.cache_data
 def create_customer_segments(offer_df, transaction_df, n_clusters=4):
@@ -49,11 +54,13 @@ def create_customer_segments(offer_df, transaction_df, n_clusters=4):
 
     return rfm
 
+
 @st.cache_data
 def analyze_offer_performance(df):
     performance = df.groupby(['offer_type', 'cluster'])['offer_success'].agg(['mean', 'count'])
     performance.columns = ['conversion_rate', 'total_offers']
     return performance
+
 
 @st.cache_data
 def analyze_customer_lifetime_value(transaction_df):
@@ -64,6 +71,7 @@ def analyze_customer_lifetime_value(transaction_df):
     clv.columns = ['total_spend', 'customer_age']
     clv['annual_value'] = clv['total_spend'] / clv['customer_age']
     return clv
+
 
 @st.cache_data
 def create_basket_data(filtered_transactions):
@@ -77,3 +85,33 @@ def create_basket_data(filtered_transactions):
     basket_data['cluster'] = kmeans.fit_predict(basket_data[['transaction_count', 'avg_basket_size']])
 
     return basket_data
+
+
+@st.cache_data
+def preprocess_channels(transaction_df):
+    """
+    Preprocess the channels column by converting string representations of lists to actual lists,
+    and then exploding the DataFrame to have one channel per row.
+    """
+    # Convert string representation of lists to actual lists
+    transaction_df['channels'] = transaction_df['channels'].apply(ast.literal_eval)
+
+    # Explode the channels column to have one channel per row
+    exploded_df = transaction_df.explode('channels')
+
+    return exploded_df
+
+
+@st.cache_data
+def get_channel_success_rate(transaction_df):
+    """
+    Calculate the success rate for each channel by grouping the exploded channels.
+    """
+    exploded_df = preprocess_channels(transaction_df)
+
+    # Calculate success rate for each channel
+    channel_success_rate = exploded_df.groupby('channels')['offer_success'].mean().reset_index()
+    channel_success_rate.columns = ['channel', 'success_rate']
+
+    return channel_success_rate
+

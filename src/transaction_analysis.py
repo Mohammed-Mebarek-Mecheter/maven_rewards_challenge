@@ -87,11 +87,11 @@ def transaction_analysis_page(offer_events, transaction_events):
         daily_transactions = filtered_transactions.set_index('time')['amount'].resample('D').sum()
         forecast_df, historical_df = generate_forecast(daily_transactions)
 
-        forecast_chart = alt.Chart(forecast_df).mark_line(color='blue').encode(
+        forecast_chart = alt.Chart(forecast_df).mark_line(color='black').encode(
             x='date:T',
             y='forecast:Q'
         )
-        historical_chart = alt.Chart(historical_df).mark_line(color='red').encode(
+        historical_chart = alt.Chart(historical_df).mark_line(color='brown').encode(
             x='date:T',
             y='actual:Q'
         )

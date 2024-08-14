@@ -46,44 +46,27 @@ def plot_success_rate_by_offer_type(offer_events_with_cluster):
                  alt.Tooltip('offer_success:Q', title='Success Rate', format='.2%')]
     ).properties(title='Offer Success Rate by Type')
 
-
+# Updated to use the processed channels column
 @st.cache_data
-def plot_channel_effectiveness(offer_events_with_cluster):
-    channel_data = offer_events_with_cluster.explode('channels').groupby('channels').agg({
-        'offer_success': 'mean',
-        'customer_id': 'count'
-    }).reset_index()
+def plot_channel_success_over_time(offer_events_with_cluster):
+    primary_color = st.get_option("theme.primaryColor")
+    offer_events_with_cluster['time'] = offer_events_with_cluster['time'].dt.hour
+    exploded_df = offer_events_with_cluster.explode('channels')  # Explode the channels column
+    channel_success_over_time = exploded_df.groupby(['time', 'channels'])['offer_success'].mean().reset_index()
 
-    fig = go.Figure(data=[go.Scatter(
-        x=channel_data['channels'],
-        y=channel_data['offer_success'],
-        mode='markers',
-        marker=dict(
-            size=channel_data['customer_id'] / channel_data['customer_id'].max() * 50,
-            color=channel_data['offer_success'],
-            colorscale='Viridis',
-            showscale=True,
-            colorbar=dict(title='Success Rate')
-        ),
-        text=[f"Channel: {ch}<br>Success Rate: {sr:.1%}<br>Customers: {ct}"
-              for ch, sr, ct in
-              zip(channel_data['channels'], channel_data['offer_success'], channel_data['customer_id'])],
-        hoverinfo='text'
-    )])
-
-    fig.update_layout(
-        title='Channel Effectiveness and Reach',
-        xaxis_title='Channel',
-        yaxis_title='Success Rate',
-        yaxis=dict(tickformat='.0%'),
-        height=500
-    )
-
-    return fig
+    return alt.Chart(channel_success_over_time).mark_line(color=primary_color).encode(
+        x=alt.X('time:T', title='Date'),
+        y=alt.Y('offer_success:Q', title='Success Rate', axis=alt.Axis(format='.0%')),
+        color=alt.Color('channels:N', title='Channel'),
+        tooltip=[alt.Tooltip('time:T', title='Date'),
+                 alt.Tooltip('channels:N', title='Channel'),
+                 alt.Tooltip('offer_success:Q', title='Success Rate', format='.2%')]
+    ).properties(title='Channel Success Rate Over Time')
 
 @st.cache_data
 def plot_segment_distribution(rfm_data):
-    return alt.Chart(rfm_data).mark_bar().encode(
+    primary_color = st.get_option("theme.primaryColor")
+    return alt.Chart(rfm_data).mark_bar(color=primary_color).encode(
         x=alt.X('cluster:N', title='Customer Segment'),
         y=alt.Y('count()', title='Number of Customers'),
         color=alt.Color('cluster:N', scale=alt.Scale(scheme='category10'), legend=None),
@@ -133,21 +116,22 @@ def plot_transaction_time_series(transaction_df, primary_color):
 
     return fig
 
+# Updated to use the processed channels column
 @st.cache_data
-def plot_channel_effectiveness(offer_df):
-    channel_success = offer_df.groupby('channels')['offer_success'].agg(['mean', 'count'])
-    channel_success.columns = ['success_rate', 'total_offers']
+def plot_offer_completion_by_channel(offer_events_with_cluster):
+    primary_color = st.get_option("theme.primaryColor")
+    # Explode the channels column and group by channels and offer success
+    offer_completion = offer_events_with_cluster.explode('channels').groupby(['channels', 'offer_success'])[
+        'offer_id'].count().reset_index()
 
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=channel_success.index, y=channel_success['success_rate'],
-                         name='Success Rate', marker_color='green'))
-    fig.add_trace(go.Bar(x=channel_success.index, y=1 - channel_success['success_rate'],
-                         name='Failure Rate', marker_color='red'))
-
-    fig.update_layout(barmode='stack', title='Offer Success Rates by Channel',
-                      xaxis_title='Channel', yaxis_title='Rate')
-
-    return fig
+    return alt.Chart(offer_completion).mark_bar(color=primary_color).encode(
+        x=alt.X('channels:N', title='Channel'),
+        y=alt.Y('offer_id:Q', title='Count of Offers'),
+        color=alt.Color('offer_success:N', title='Offer Completion', scale=alt.Scale(scheme='browns')),
+        tooltip=[alt.Tooltip('channels:N', title='Channel'),
+                 alt.Tooltip('offer_success:N', title='Offer Completion'),
+                 alt.Tooltip('offer_id:Q', title='Count')]
+    ).properties(title='Offer Completion by Channel')
 
 
 @st.cache_data

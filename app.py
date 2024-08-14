@@ -10,14 +10,13 @@ from utils.data_processor import preprocess_offer_events, preprocess_transaction
 # Set page config
 st.set_page_config(page_title="Maven Rewards Challenge", page_icon=":coffee:", layout="wide")
 
-def load_css():
-    with open("assets/style.css") as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+# def load_css():
+#     with open("assets/style.css") as f:
+#         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+#
+# # Call this function at the beginning of your app
+# load_css()
 
-# Call this function at the beginning of your app
-load_css()
-
-# Custom CSS for Maven Cafe Rewards theme
 st.markdown("""
     <style>
     .header-container {
@@ -32,17 +31,17 @@ st.markdown("""
     .main-header {
         font-size: 2.8rem;
         font-weight: 700;
-        color: #3d2c1f;
+        color: #3e2a1e;  /* Deep Coffee */
         margin-bottom: 0.5rem;
     }
     .sub-header {
         font-size: 1.8rem;
         font-weight: 500;
-        color: #5c3d2e;
+        color: #3e2a1e;  /* Deep Coffee */
         margin-bottom: 1.5rem;
     }
     .metric-card {
-        background-color: #f0e6db;
+        background-color: #f9f5f0;  /* Ivory */
         border-radius: 15px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
@@ -55,12 +54,12 @@ st.markdown("""
     .metric-value {
         font-size: 2.2rem;
         font-weight: 700;
-        color: #3d2c1f;
+        color: #3e2a1e;  /* Deep Coffee */
         text-align: center;
     }
     .metric-label {
         font-size: 1.1rem;
-        color: #5c3d2e;
+        color: #3e2a1e;  /* Deep Coffee */
         text-align: center;
         margin-top: 0.5rem;
     }
@@ -122,7 +121,7 @@ def show_home_page(offer_events, transaction_events):
     1. Customer segmentation has identified distinct groups with varying preferences and behaviors.
     2. BOGO offers have shown the highest conversion rate across all customer segments.
     3. Informational offers have high view rates but need better reward strategies.
-    4. Email has proven to be the most effective channel for offer distribution.
+    4. Web has proven to be the most effective channel for offer distribution.
     5. There's a positive correlation between offer duration and completion rates.
     6. Customer Lifetime Value (CLV) varies significantly across segments.
     """)
