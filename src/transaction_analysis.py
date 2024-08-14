@@ -1,15 +1,25 @@
 # src/transaction_analysis.py
 import streamlit as st
-import pandas as pd
 import altair as alt
+import pandas as pd
 from statsmodels.tsa.arima.model import ARIMA
 from st_aggrid import AgGrid, GridOptionsBuilder
 from sklearn.cluster import KMeans
-from utils.visualizations import plot_transaction_time_series
-from utils.data_processor import preprocess_transaction_events, analyze_customer_lifetime_value
+from utils.visualizations import (
+    plot_transaction_time_series,
+    plot_weekly_transaction_trend,
+    plot_basket_analysis,
+    plot_clv_distribution
+)
+from utils.data_processor import (
+    preprocess_transaction_events,
+    analyze_customer_lifetime_value,
+    create_basket_data
+)
 from utils.pdf_generator import generate_pdf_report
 
-# Caching data processing functions
+
+@st.cache_data
 def preprocess_and_filter_transactions(transaction_events, min_amount, max_amount, min_frequency, max_frequency):
     transaction_events = preprocess_transaction_events(transaction_events)
     filtered_transactions = transaction_events[(transaction_events['amount'] >= min_amount) &
@@ -20,54 +30,36 @@ def preprocess_and_filter_transactions(transaction_events, min_amount, max_amoun
     filtered_transactions = filtered_transactions[filtered_transactions['customer_id'].isin(filtered_customers)]
     return filtered_transactions
 
-# Weekly Transaction Trend with Theme Colors
-def plot_weekly_transaction_trend(filtered_transactions, primary_color, secondary_color):
-    weekly_transactions = filtered_transactions.set_index('time').resample('W')['amount'].sum().reset_index()
-    weekly_chart = alt.Chart(weekly_transactions).mark_area(
-        line={'color': primary_color},
-        color=alt.Gradient(
-            gradient='linear',
-            stops=[alt.GradientStop(color=secondary_color, offset=0),
-                   alt.GradientStop(color=primary_color, offset=1)],
-            x1=1,
-            x2=1,
-            y1=1,
-            y2=0
-        )
-    ).encode(
-        x=alt.X('time:T', title='Date'),
-        y=alt.Y('amount:Q', title='Total Transaction Amount ($)'),
-        tooltip=[alt.Tooltip('time:T', title='Date'), alt.Tooltip('amount:Q', title='Amount', format='$,.2f')]
-    ).properties(title='Weekly Transaction Trend')
-    return weekly_chart
 
-# Basket Analysis with Theme Colors
-def plot_basket_analysis(basket_data, primary_color):
-    scatter = alt.Chart(basket_data).mark_circle(size=60).encode(
-        x=alt.X('transaction_count:Q', title='Number of Transactions'),
-        y=alt.Y('avg_basket_size:Q', title='Average Basket Size ($)'),
-        color=alt.Color('cluster:N', scale=alt.Scale(scheme='dark2'), title='Segment'),
-        tooltip=['transaction_count', 'avg_basket_size', 'cluster']
-    ).properties(title='Customer Segments based on Transaction Behavior')
-    scatter = scatter.configure_mark(color=primary_color)
-    return scatter
+@st.cache_data
+def generate_forecast(daily_transactions, steps=30):
+    model = ARIMA(daily_transactions, order=(1, 1, 1))
+    results = model.fit()
+    forecast = results.forecast(steps=steps)
+    forecast_df = pd.DataFrame({'date': forecast.index, 'forecast': forecast.values})
+    historical_df = pd.DataFrame({'date': daily_transactions.index, 'actual': daily_transactions.values})
+    return forecast_df, historical_df
+
 
 def transaction_analysis_page(offer_events, transaction_events):
-    # Determine theme colors
-    primary_color = st.get_option("theme.primaryColor")
-    secondary_color = st.get_option("theme.backgroundColor")
-
     st.title("Transaction Analysis")
 
     # Sidebar for filters
     st.sidebar.header("⚙️ Filters")
-    min_transaction_amount = st.sidebar.slider("Min Transaction Amount ($)", 0, int(transaction_events['amount'].max()), 0)
-    max_transaction_amount = st.sidebar.slider("Max Transaction Amount ($)", 0, int(transaction_events['amount'].max()), int(transaction_events['amount'].max()))
-    min_transaction_frequency = st.sidebar.slider("Min Transaction Frequency", 0, int(transaction_events['customer_id'].value_counts().max()), 0)
-    max_transaction_frequency = st.sidebar.slider("Max Transaction Frequency", 0, int(transaction_events['customer_id'].value_counts().max()), int(transaction_events['customer_id'].value_counts().max()))
+    min_transaction_amount = st.sidebar.slider("Min Transaction Amount ($)", 0, int(transaction_events['amount'].max()),
+                                               0)
+    max_transaction_amount = st.sidebar.slider("Max Transaction Amount ($)", 0, int(transaction_events['amount'].max()),
+                                               int(transaction_events['amount'].max()))
+    min_transaction_frequency = st.sidebar.slider("Min Transaction Frequency", 0,
+                                                  int(transaction_events['customer_id'].value_counts().max()), 0)
+    max_transaction_frequency = st.sidebar.slider("Max Transaction Frequency", 0,
+                                                  int(transaction_events['customer_id'].value_counts().max()),
+                                                  int(transaction_events['customer_id'].value_counts().max()))
 
     # Preprocess and filter transaction events
-    filtered_transactions = preprocess_and_filter_transactions(transaction_events, min_transaction_amount, max_transaction_amount, min_transaction_frequency, max_transaction_frequency)
+    filtered_transactions = preprocess_and_filter_transactions(transaction_events, min_transaction_amount,
+                                                               max_transaction_amount, min_transaction_frequency,
+                                                               max_transaction_frequency)
 
     # Transaction Overview
     st.header("📊 Transaction Overview")
@@ -82,29 +74,24 @@ def transaction_analysis_page(offer_events, transaction_events):
 
     with col1:
         st.subheader("Daily Transactions")
-        fig_time_series = plot_transaction_time_series(filtered_transactions, primary_color)
+        fig_time_series = plot_transaction_time_series(filtered_transactions)
         st.plotly_chart(fig_time_series, use_container_width=True)
 
     with col2:
         st.subheader("Weekly Trend")
-        fig_weekly = plot_weekly_transaction_trend(filtered_transactions, primary_color, secondary_color)
+        fig_weekly = plot_weekly_transaction_trend(filtered_transactions)
         st.altair_chart(fig_weekly, use_container_width=True)
 
     with col3:
         st.subheader("Transaction Forecast")
         daily_transactions = filtered_transactions.set_index('time')['amount'].resample('D').sum()
-        model = ARIMA(daily_transactions, order=(1, 1, 1))
-        results = model.fit()
-        forecast = results.forecast(steps=30)
+        forecast_df, historical_df = generate_forecast(daily_transactions)
 
-        forecast_df = pd.DataFrame({'date': forecast.index, 'forecast': forecast.values})
-        historical_df = pd.DataFrame({'date': daily_transactions.index, 'actual': daily_transactions.values})
-
-        forecast_chart = alt.Chart(forecast_df).mark_line(color='secondary_color').encode(
+        forecast_chart = alt.Chart(forecast_df).mark_line(color='blue').encode(
             x='date:T',
             y='forecast:Q'
         )
-        historical_chart = alt.Chart(historical_df).mark_line(color='primary_color').encode(
+        historical_chart = alt.Chart(historical_df).mark_line(color='red').encode(
             x='date:T',
             y='actual:Q'
         )
@@ -112,19 +99,12 @@ def transaction_analysis_page(offer_events, transaction_events):
 
     # Basket Analysis
     st.header("🛒 Customer Segmentation")
-    transaction_counts = filtered_transactions.groupby('customer_id').size().reset_index(name='transaction_count')
-    transaction_amounts = filtered_transactions.groupby('customer_id')['amount'].sum().reset_index()
-    basket_data = pd.merge(transaction_counts, transaction_amounts, on='customer_id')
-    basket_data['avg_basket_size'] = basket_data['amount'] / basket_data['transaction_count']
-
-    # Cluster customers based on transaction count and average basket size
-    kmeans = KMeans(n_clusters=4, random_state=42)
-    basket_data['cluster'] = kmeans.fit_predict(basket_data[['transaction_count', 'avg_basket_size']])
+    basket_data = create_basket_data(filtered_transactions)
 
     col1, col2 = st.columns(2)
 
     with col1:
-        fig_basket = plot_basket_analysis(basket_data, primary_color)
+        fig_basket = plot_basket_analysis(basket_data)
         st.altair_chart(fig_basket, use_container_width=True)
 
     with col2:
@@ -148,11 +128,7 @@ def transaction_analysis_page(offer_events, transaction_events):
 
         with col1:
             st.subheader("Distribution of CLV")
-            fig_clv = alt.Chart(clv_data).mark_bar().encode(
-                x=alt.X('total_spend:Q', bin=alt.Bin(maxbins=20), title='Total Spend ($)'),
-                y=alt.Y('count()', title='Number of Customers'),
-                color=alt.value(primary_color)
-            ).properties(title='')
+            fig_clv = plot_clv_distribution(clv_data)
             st.altair_chart(fig_clv, use_container_width=True)
 
         with col2:
@@ -182,3 +158,6 @@ def transaction_analysis_page(offer_events, transaction_events):
             mime="application/pdf"
         )
 
+
+if __name__ == "__main__":
+    transaction_analysis_page(None, None)  # You may need to adjust this based on how you're loading the data

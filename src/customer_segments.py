@@ -1,61 +1,28 @@
 # src/customer_segments.py
 import streamlit as st
-import pandas as pd
-import altair as alt
-from st_aggrid import AgGrid, GridOptionsBuilder
-from utils.data_processor import create_customer_segments
 from utils.data_loader import load_all_data
+from utils.data_processor import (
+    create_customer_segments,
+    preprocess_offer_data,
+    preprocess_transaction_data
+)
+from utils.visualizations import (
+    plot_age_distribution,
+    plot_income_distribution,
+    plot_rfm_clusters,
+    plot_segment_distribution
+)
 from utils.pdf_generator import generate_customer_segments_pdf
+from st_aggrid import AgGrid, GridOptionsBuilder
 
-
-def preprocess_offer_data(offer_events, selected_offer_types):
-    return offer_events.query("offer_type in @selected_offer_types")
-
-
-def preprocess_transaction_data(transaction_events, min_amount, max_amount):
-    return transaction_events.query("amount >= @min_amount and amount <= @max_amount")
-
-
-def plot_age_distribution(filtered_data, primary_color):
-    return alt.Chart(filtered_data).mark_bar(color=primary_color).encode(
-        x=alt.X('age:Q', bin=alt.Bin(maxbins=20), title='Age'),
-        y=alt.Y('count()', title='Number of Customers'),
-        tooltip=[alt.Tooltip('age:Q', title='Age'), alt.Tooltip('count()', title='Number of Customers')]
-    ).properties(title='Age Distribution')
-
-
-def plot_income_distribution(filtered_data, primary_color):
-    return alt.Chart(filtered_data).mark_boxplot(size=50).encode(
-        y=alt.Y('income:Q', title='Income'),
-        x=alt.X('gender:N', title='Gender'),
-        color=alt.Color('gender:N', scale=alt.Scale(scheme='viridis'), legend=None),
-        tooltip=[alt.Tooltip('income:Q', title='Income'), alt.Tooltip('gender:N', title='Gender')]
-    ).properties(title='Income Distribution by Gender')
-
-
-def plot_rfm_clusters(rfm_data, primary_color):
-    return alt.Chart(rfm_data).mark_circle(size=60).encode(
-        x=alt.X('recency:Q', title='Recency (days)'),
-        y=alt.Y('frequency:Q', title='Frequency (transactions)'),
-        color=alt.Color('cluster:N', scale=alt.Scale(scheme='category10'), title='Customer Segment'),
-        size=alt.Size('monetary:Q', title='Monetary Value'),
-        tooltip=['recency', 'frequency', 'monetary', 'cluster']
-    ).properties(title='RFM Clusters').configure_mark(color=primary_color)
-
-
-def plot_segment_distribution(rfm_data, primary_color):
-    return alt.Chart(rfm_data).mark_bar().encode(
-        x=alt.X('cluster:N', title='Customer Segment'),
-        y=alt.Y('count()', title='Number of Customers'),
-        color=alt.Color('cluster:N', scale=alt.Scale(scheme='category10'), legend=None),
-        tooltip=['cluster', alt.Tooltip('count()', title='Number of Customers')]
-    ).properties(title='Customer Segment Distribution')
-
+@st.cache_data
+def get_filtered_data(offer_events, transaction_events, selected_offer_types, min_amount, max_amount):
+    filtered_offers = preprocess_offer_data(offer_events, selected_offer_types)
+    filtered_transactions = preprocess_transaction_data(transaction_events, min_amount, max_amount)
+    rfm_data = create_customer_segments(filtered_offers, filtered_transactions)
+    return filtered_offers, filtered_transactions, rfm_data
 
 def customer_segments_page():
-    # Determine theme colors
-    primary_color = st.get_option("theme.primaryColor")
-
     st.title("Customer Segmentation Analysis")
 
     # Load Data
@@ -69,12 +36,10 @@ def customer_segments_page():
     selected_offer_types = st.sidebar.multiselect("Offer Types", offer_events['offer_type'].unique(),
                                                   default=offer_events['offer_type'].unique())
 
-    # Filter data
-    filtered_transactions = preprocess_transaction_data(transaction_events, min_amount, max_amount)
-
-    # Create customer segments
-    rfm_data = create_customer_segments(preprocess_offer_data(offer_events, selected_offer_types),
-                                        filtered_transactions)
+    # Get filtered data
+    filtered_offers, filtered_transactions, rfm_data = get_filtered_data(
+        offer_events, transaction_events, selected_offer_types, min_amount, max_amount
+    )
 
     # Display key metrics
     st.header("📊 Key Metrics")
@@ -86,7 +51,7 @@ def customer_segments_page():
 
     # RFM Cluster Visualization
     st.header("🎯 Customer Segments")
-    rfm_chart = plot_rfm_clusters(rfm_data, primary_color)
+    rfm_chart = plot_rfm_clusters(rfm_data)
     st.altair_chart(rfm_chart, use_container_width=True)
 
     # Segment Explorer
@@ -117,7 +82,7 @@ def customer_segments_page():
 
         # Segment Distribution Chart
         with col2:
-            segment_distribution_chart = plot_segment_distribution(rfm_data, primary_color)
+            segment_distribution_chart = plot_segment_distribution(rfm_data)
             st.altair_chart(segment_distribution_chart, use_container_width=True)
 
     # Demographic Insights
@@ -125,12 +90,11 @@ def customer_segments_page():
     col1, col2 = st.columns(2)
 
     with col1:
-        age_chart = plot_age_distribution(preprocess_offer_data(offer_events, selected_offer_types), primary_color)
+        age_chart = plot_age_distribution(filtered_offers)
         st.altair_chart(age_chart, use_container_width=True)
 
     with col2:
-        income_chart = plot_income_distribution(preprocess_offer_data(offer_events, selected_offer_types),
-                                                primary_color)
+        income_chart = plot_income_distribution(filtered_offers)
         st.altair_chart(income_chart, use_container_width=True)
 
     # Export options
@@ -139,10 +103,10 @@ def customer_segments_page():
         pdf_buffer = generate_customer_segments_pdf(
             rfm_data,
             segment_data,
-            preprocess_offer_data(offer_events, selected_offer_types),
-            plot_rfm_clusters(rfm_data, primary_color),
-            plot_age_distribution(preprocess_offer_data(offer_events, selected_offer_types), primary_color),
-            plot_income_distribution(preprocess_offer_data(offer_events, selected_offer_types), primary_color)
+            filtered_offers,
+            plot_rfm_clusters(rfm_data),
+            plot_age_distribution(filtered_offers),
+            plot_income_distribution(filtered_offers)
         )
         st.sidebar.download_button(
             label="Download PDF Report",
@@ -150,7 +114,6 @@ def customer_segments_page():
             file_name="customer_segments_report.pdf",
             mime="application/pdf"
         )
-
 
 if __name__ == "__main__":
     customer_segments_page()
