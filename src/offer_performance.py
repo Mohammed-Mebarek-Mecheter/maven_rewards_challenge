@@ -90,7 +90,7 @@ def offer_performance_page():
     with col2:
         st.subheader("Channel Effectiveness")
         channel_chart = plot_channel_effectiveness(offer_events_with_cluster)
-        st.altair_chart(channel_chart, use_container_width=True)
+        st.plotly_chart(plot_channel_effectiveness(offer_events_with_cluster), use_container_width=True)
 
     # Display filtered data with AgGrid
     st.header("🔍 Detailed Data View")

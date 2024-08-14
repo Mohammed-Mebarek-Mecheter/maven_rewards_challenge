@@ -49,18 +49,37 @@ def plot_success_rate_by_offer_type(offer_events_with_cluster):
 
 @st.cache_data
 def plot_channel_effectiveness(offer_events_with_cluster):
-    primary_color = st.get_option("theme.primaryColor")
-    channel_success = offer_events_with_cluster.explode('channels').groupby('channels')[
-        'offer_success'].mean().reset_index()
-    # Ensure the data types are correct
-    channel_success['channels'] = channel_success['channels'].astype(str)
-    channel_success['offer_success'] = channel_success['offer_success'].astype(float)
-    return alt.Chart(channel_success).mark_bar(color=primary_color).encode(
-        x=alt.X('channels:N', title='Channel', sort='-y'),
-        y=alt.Y('offer_success:Q', title='Success Rate', axis=alt.Axis(format='.0%')),
-        tooltip=[alt.Tooltip('channels:N', title='Channel'),
-                 alt.Tooltip('offer_success:Q', title='Success Rate', format='.2%')]
-    ).properties(title='Channel Effectiveness')
+    channel_data = offer_events_with_cluster.explode('channels').groupby('channels').agg({
+        'offer_success': 'mean',
+        'customer_id': 'count'
+    }).reset_index()
+
+    fig = go.Figure(data=[go.Scatter(
+        x=channel_data['channels'],
+        y=channel_data['offer_success'],
+        mode='markers',
+        marker=dict(
+            size=channel_data['customer_id'] / channel_data['customer_id'].max() * 50,
+            color=channel_data['offer_success'],
+            colorscale='Viridis',
+            showscale=True,
+            colorbar=dict(title='Success Rate')
+        ),
+        text=[f"Channel: {ch}<br>Success Rate: {sr:.1%}<br>Customers: {ct}"
+              for ch, sr, ct in
+              zip(channel_data['channels'], channel_data['offer_success'], channel_data['customer_id'])],
+        hoverinfo='text'
+    )])
+
+    fig.update_layout(
+        title='Channel Effectiveness and Reach',
+        xaxis_title='Channel',
+        yaxis_title='Success Rate',
+        yaxis=dict(tickformat='.0%'),
+        height=500
+    )
+
+    return fig
 
 @st.cache_data
 def plot_segment_distribution(rfm_data):
