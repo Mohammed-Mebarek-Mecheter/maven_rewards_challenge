@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 from streamlit_option_menu import option_menu
 from src.customer_segments import customer_segments_page
@@ -10,58 +9,95 @@ from utils.data_processor import preprocess_offer_events, preprocess_transaction
 # Set page config
 st.set_page_config(page_title="Maven Rewards Challenge", page_icon=":coffee:", layout="wide")
 
-# def load_css():
-#     with open("assets/style.css") as f:
-#         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-#
-# # Call this function at the beginning of your app
-# load_css()
-
 st.markdown("""
     <style>
+    /* General Layout */
     .header-container {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 1.5rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e0d9cf; /* Light Coffee for elegant separation */
     }
     .header-container img {
+        align-self: flex-start;
         width: 100px;
+        margin-right: 1rem;
     }
     .main-header {
         font-size: 2.8rem;
         font-weight: 700;
         color: #3e2a1e;  /* Deep Coffee */
         margin-bottom: 0.5rem;
+        text-align: center;
+        width: 100%;
+        animation: fadeInDown 1s ease;
     }
     .sub-header {
         font-size: 1.8rem;
         font-weight: 500;
         color: #3e2a1e;  /* Deep Coffee */
-        margin-bottom: 1.5rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        border-bottom: 1px solid #e0d9cf;
+        padding-bottom: 0.5rem;
+        animation: fadeInUp 1s ease;
     }
+    /* Metric Cards */
     .metric-card {
         background-color: #f9f5f0;  /* Ivory */
-        border-radius: 15px;
-        padding: 1.5rem;
+        border-radius: 20px;
+        padding: 2rem;
         margin-bottom: 1.5rem;
         box-shadow: 0 6px 12px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        text-align: center;
+        cursor: pointer;
+        transform-origin: center;
     }
     .metric-card:hover {
-        transform: translateY(-5px);
+        transform: scale(1.1);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.2);
     }
     .metric-value {
-        font-size: 2.2rem;
+        font-size: 2.5rem;
         font-weight: 700;
         color: #3e2a1e;  /* Deep Coffee */
-        text-align: center;
+        margin-bottom: 0.5rem;
     }
     .metric-label {
-        font-size: 1.1rem;
+        font-size: 1.2rem;
         color: #3e2a1e;  /* Deep Coffee */
-        text-align: center;
         margin-top: 0.5rem;
+    }
+    /* Section Divider */
+    .section-divider {
+        margin: 3rem 0;
+        border-bottom: 2px solid #e0d9cf;
+        animation: fadeIn 1s ease;
+    }
+    /* Fade-in Animations */
+    @keyframes fadeInDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    /* Option Menu Styling */
+    .option-menu-container {
+        margin-top: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e0d9cf;
+    }
+    .st-emotion-cache-gvyv8g {
+        color: #000;  /* Deep Coffee */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -93,11 +129,11 @@ def main():
         default_index=0,
         orientation="horizontal",
         styles={
-            "container": {"padding": "0!important", "background-color": "#f0e6db"},
-            "icon": {"color": "#3d2c1f", "font-size": "14px"},
-            "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px", "--hover-color": "#eae0d5"},
+            "container": {"padding": "0!important", "background-color": "#f0e6db", "border-radius": "10px"},
+            "icon": {"color": "#3d2c1f", "font-size": "16px"},
+            "nav-link": {"font-size": "16px", "text-align": "center", "margin":"0px", "--hover-color": "#eae0d5"},
             "nav-link-selected": {"background-color": "#3d2c1f", "color": "white"},
-        }
+        },
     )
 
     # Load and preprocess data
@@ -114,60 +150,69 @@ def main():
         transaction_analysis_page(offer_events, transaction_events)
 
 def show_home_page(offer_events, transaction_events):
-    st.markdown('<p class="sub-header">Executive Summary</p>', unsafe_allow_html=True)
-    st.write("""
-    Our analysis of the Maven Rewards program has revealed several key insights that will drive our future marketing strategy:
-
-    1. Customer segmentation has identified distinct groups with varying preferences and behaviors.
-    2. BOGO offers have shown the highest conversion rate across all customer segments.
-    3. Informational offers have high view rates but need better reward strategies.
-    4. Web has proven to be the most effective channel for offer distribution.
-    5. There's a positive correlation between offer duration and completion rates.
-    6. Customer Lifetime Value (CLV) varies significantly across segments.
-    """)
 
     # Display key metrics
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        total_customers = len(offer_events["customer_id"].unique())
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.markdown(f'<p class="metric-value">{total_customers:,}</p>', unsafe_allow_html=True)
-        st.markdown('<p class="metric-label">Total Customers</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card"><div class="metric-value">' +
+                    f'{len(offer_events["customer_id"].unique()):,}' +
+                    '</div><div class="metric-label">Total Customers</div></div>',
+                    unsafe_allow_html=True)
 
     with col2:
         conversion_rate = offer_events[offer_events['event'] == 'offer completed'].shape[0] / \
                           offer_events[offer_events['event'] == 'offer received'].shape[0]
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.markdown(f'<p class="metric-value">{conversion_rate:.2%}</p>', unsafe_allow_html=True)
-        st.markdown('<p class="metric-label">Overall Offer Conversion Rate</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card"><div class="metric-value">' +
+                    f'{conversion_rate:.2%}' +
+                    '</div><div class="metric-label">Overall Offer Conversion Rate</div></div>',
+                    unsafe_allow_html=True)
 
     with col3:
         total_revenue = transaction_events['amount'].sum()
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.markdown(f'<p class="metric-value">${total_revenue:,.0f}</p>', unsafe_allow_html=True)
-        st.markdown('<p class="metric-label">Total Revenue</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card"><div class="metric-value">' +
+                    f'${total_revenue:,.0f}' +
+                    '</div><div class="metric-label">Total Revenue</div></div>',
+                    unsafe_allow_html=True)
 
     with col4:
         avg_transaction = transaction_events['amount'].mean()
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.markdown(f'<p class="metric-value">${avg_transaction:.2f}</p>', unsafe_allow_html=True)
-        st.markdown('<p class="metric-label">Average Transaction Amount</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="metric-card"><div class="metric-value">' +
+                    f'${avg_transaction:.2f}' +
+                    '</div><div class="metric-label">Average Transaction Amount</div></div>',
+                    unsafe_allow_html=True)
 
-    st.markdown('<p class="sub-header">Key Recommendations</p>', unsafe_allow_html=True)
-    st.write("""
-    Based on our analysis, we recommend the following strategies:
+    # Elegant separation between metrics and summary
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
-    1. Tailor offer types to customer segments, focusing on BOGO offers for high-value customers.
-    2. Optimize email distribution and explore enhancing mobile and social channels.
-    3. Implement a tiered rewards system based on Customer Lifetime Value (CLV) predictions.
-    4. Create targeted campaigns for "at-risk" segments to improve retention.
-    5. Adjust offer durations to increase completion rates while maintaining engagement.
-    """)
+    col5, col6 = st.columns(2)
+    with col5:
+        st.markdown('<p class="sub-header">Executive Summary</p>', unsafe_allow_html=True)
+        st.write("""
+                Our analysis of the Maven Rewards program has revealed several key insights that will drive our future marketing strategy:
+
+                1. Customer segmentation has identified distinct groups with varying preferences and behaviors.
+                2. BOGO offers have shown the highest conversion rate across all customer segments.
+                3. Informational offers have high view rates but need better reward strategies.
+                4. Web has proven to be the most effective channel for offer distribution.
+                5. There's a positive correlation between offer duration and completion rates.
+                6. Customer Lifetime Value (CLV) varies significantly across segments.
+                """)
+
+    with col6:
+        st.markdown('<p class="sub-header">Key Recommendations</p>', unsafe_allow_html=True)
+        st.write("""
+            Based on our analysis, we recommend the following strategies:
+
+            1. Tailor offer types to customer segments, focusing on BOGO offers for high-value customers.
+            2. Optimize email distribution and explore enhancing mobile and social channels.
+            3. Implement a tiered rewards system based on Customer Lifetime Value (CLV) predictions.
+            4. Create targeted campaigns for "at-risk" segments to improve retention.
+            5. Adjust offer durations to increase completion rates while maintaining engagement.
+                    """)
+
+    # Final elegant separation
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()

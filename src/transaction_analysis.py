@@ -2,9 +2,9 @@
 import streamlit as st
 import altair as alt
 import pandas as pd
+from altair.vega import background
 from statsmodels.tsa.arima.model import ARIMA
 from st_aggrid import AgGrid, GridOptionsBuilder
-from sklearn.cluster import KMeans
 from utils.visualizations import (
     plot_transaction_time_series,
     plot_weekly_transaction_trend,
@@ -39,12 +39,63 @@ def generate_forecast(daily_transactions, steps=30):
     historical_df = pd.DataFrame({'date': daily_transactions.index, 'actual': daily_transactions.values})
     return forecast_df, historical_df
 
-
 def transaction_analysis_page(offer_events, transaction_events):
-    st.title("Transaction Analysis")
+    st.markdown('<h1 class="title">Transaction Analysis</h1>', unsafe_allow_html=True)
+    # Add CSS for custom styling
+    st.markdown("""
+            <style>
+            /* Page Title Styling */
+            .title {
+                font-size: 2.5rem;
+                font-weight: 700;
+                color: #3e2a1e; /* Deep Coffee */
+                margin-bottom: 2rem;
+                text-align: center;
+                animation: fadeInDown 1s ease;
+            }
+            /* Header Styling */
+            .header {
+                font-size: 1.8rem;
+                font-weight: 600;
+                color: #3e2a1e; /* Deep Coffee */
+                margin-bottom: 1rem;
+                text-align: center;
+                border-bottom: 2px solid #e0d9cf;
+                padding-bottom: 0.5rem;
+                animation: fadeInUp 1s ease;
+            }
+            .sidebar h2 {
+                color: #3e2a1e; /* Deep Coffee */
+            }margin-bottom: 0.5rem;
+            }
+            /* Section Divider */
+            .section-divider {
+                margin: 3rem 0;
+                border-bottom: 2px solid #e0d9cf;
+                animation: fadeIn 1s ease;
+            }
+            /* Fade-in Animations */
+            @keyframes fadeInDown {
+                from { opacity: 0; transform: translateY(-20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            :root {
+                --primary-bg-color: #000;
+            }
+            </style>
+            """, unsafe_allow_html=True)
 
     # Sidebar for filters
     st.sidebar.header("⚙️ Filters")
+    st.sidebar.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
     time_range = st.sidebar.slider("Select Time Range", min_value=1, max_value=30, value=(1, 30))
     min_date = transaction_events['time'].min().date()
     start_date = min_date + pd.to_timedelta(time_range[0] - 1, unit='D')
@@ -52,34 +103,78 @@ def transaction_analysis_page(offer_events, transaction_events):
 
     transaction_amount_range = st.sidebar.slider("Transaction Amount ($)", 0, int(transaction_events['amount'].max()),
                                                  (0, int(transaction_events['amount'].max())))
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
     # Preprocess and filter transaction events
     filtered_transactions = preprocess_and_filter_transactions(transaction_events, start_date, end_date,
                                                                 transaction_amount_range)
 
     # Transaction Overview
-    st.header("📊 Transaction Overview")
+    #st.markdown('<h2 class="header">📊 Transaction Overview</h2>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
-    col1.metric("Total Transactions", f"{len(filtered_transactions):,}")
-    col2.metric("Total Revenue", f"${filtered_transactions['amount'].sum():,.2f}")
-    col3.metric("Average Transaction Value", f"${filtered_transactions['amount'].mean():.2f}")
+    with col1:
+        st.markdown('<div class="metric-card"><div class="metric-value">' +
+                    f"{len(filtered_transactions):,}" +
+                    '</div><div class="metric-label">Total Transactions</div></div>',
+                    unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="metric-card"><div class="metric-value">' +
+                    f"${filtered_transactions['amount'].sum():,.2f}" +
+                    '</div><div class="metric-label">Total Revenue</div></div>',
+                    unsafe_allow_html=True)
+    with col3:
+        st.markdown('<div class="metric-card"><div class="metric-value">' +
+                    f"${filtered_transactions['amount'].mean():.2f}" +
+                    '</div><div class="metric-label">Average Transaction Value</div></div>',
+                    unsafe_allow_html=True)
 
     # Time series analysis of transactions
-    st.header("📈 Transaction Trends")
-    col1, col2, col3 = st.columns(3)
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    #st.markdown('<h2 class="header">📈 Transaction Trends</h2>', unsafe_allow_html=True)
+    col1, col2 = st.columns([2, 1])
 
     with col1:
-        st.subheader("Daily Transactions")
-        fig_time_series = plot_transaction_time_series(filtered_transactions)
-        st.plotly_chart(fig_time_series, use_container_width=True)
-
-    with col2:
-        st.subheader("Weekly Trend")
+        st.markdown('<h3 class="sub-header">Weekly Trend</h3>', unsafe_allow_html=True)
         fig_weekly = plot_weekly_transaction_trend(filtered_transactions)
         st.altair_chart(fig_weekly, use_container_width=True)
 
-    with col3:
-        st.subheader("Transaction Forecast")
+    with col2:
+        st.markdown('<h3 class="sub-header">Segment Characteristics</h3>', unsafe_allow_html=True)
+        basket_data = create_basket_data(filtered_transactions)
+        cluster_stats = basket_data.groupby('cluster')[['transaction_count', 'avg_basket_size']].mean().round(2)
+        cluster_stats.columns = ['Avg. Transactions', 'Avg. Basket Size ($)']
+        cluster_stats.index.name = 'Segment'
+
+        gb = GridOptionsBuilder.from_dataframe(cluster_stats)
+        gb.configure_default_column(min_column_width=20)
+        gb.configure_grid_options(
+            rowStyle={"color": "#6f4f28", "background-color": "#f0e6db"},
+            # Adjust this to match the desired app background
+            headerStyle={"color": "#000", "background-color": "#dcd6c7"},
+            # Header background color to match the app's theme
+        )
+        gridOptions = gb.build()
+
+        AgGrid(cluster_stats,
+               gridOptions=gridOptions,
+               height=170)
+
+    st.markdown('<h3 class="sub-header">Daily Transactions</h3>', unsafe_allow_html=True)
+    fig_time_series = plot_transaction_time_series(filtered_transactions)
+    st.plotly_chart(fig_time_series, use_container_width=True)
+
+    # Basket Analysis
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    # st.markdown('<h2 class="header">🛒 Customer Segmentation</h2>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<h3 class="sub-header">Basket Analysis</h3>', unsafe_allow_html=True)
+        fig_basket = plot_basket_analysis(basket_data)
+        st.altair_chart(fig_basket, use_container_width=True)
+
+    with col2:
+        st.markdown('<h3 class="sub-header">Transaction Forecast</h3>', unsafe_allow_html=True)
         daily_transactions = filtered_transactions.set_index('time')['amount'].resample('D').sum()
         forecast_df, historical_df = generate_forecast(daily_transactions)
 
@@ -90,40 +185,25 @@ def transaction_analysis_page(offer_events, transaction_events):
         historical_chart = alt.Chart(historical_df).mark_line(color='#6f4f28').encode(
             x='date:T',
             y='actual:Q'
-        )
+        ).properties(title='')
         st.altair_chart(historical_chart + forecast_chart, use_container_width=True)
 
-    # Basket Analysis
-    st.header("🛒 Customer Segmentation")
-    basket_data = create_basket_data(filtered_transactions)
-
-    col1, col2 = st.columns([1, 1])
-
-    with col1:
-        fig_basket = plot_basket_analysis(basket_data)
-        st.altair_chart(fig_basket, use_container_width=True)
-
-    with col2:
-        cluster_stats = basket_data.groupby('cluster')[['transaction_count', 'avg_basket_size']].mean().round(2)
-        cluster_stats.columns = ['Avg. Transactions', 'Avg. Basket Size ($)']
-        cluster_stats.index.name = 'Segment'
-        fig_segment_radar = plot_segment_characteristics(cluster_stats)
-        st.altair_chart(fig_segment_radar, use_container_width=True)
 
     # Customer Lifetime Value (CLV) Analysis
-    st.header("💰 Customer Lifetime Value Analysis")
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    #st.markdown('<h2 class="header">💰 Customer Lifetime Value Analysis</h2>', unsafe_allow_html=True)
     clv_data = analyze_customer_lifetime_value(filtered_transactions)
 
     if not clv_data.empty:
         col1, col2 = st.columns(2)
 
         with col1:
-            st.subheader("Distribution of CLV")
+            st.markdown('<h3 class="sub-header">Distribution of CLV</h3>', unsafe_allow_html=True)
             fig_clv = plot_clv_distribution(clv_data)
             st.altair_chart(fig_clv, use_container_width=True)
 
         with col2:
-            st.subheader("Top Customers by CLV")
+            st.markdown('<h3 class="sub-header">Top Customers by CLV</h3>', unsafe_allow_html=True)
             top_customers = clv_data.sort_values(by='total_spend', ascending=False).head(10)
             if 'customer_id' in top_customers.columns:
                 gb = GridOptionsBuilder.from_dataframe(top_customers[['customer_id', 'total_spend', 'annual_value']])
@@ -132,14 +212,15 @@ def transaction_analysis_page(offer_events, transaction_events):
 
                 AgGrid(top_customers[['customer_id', 'total_spend', 'annual_value']],
                        gridOptions=gridOptions,
-                       height=300)
+                       height=350)
             else:
                 st.write(top_customers)
     else:
         st.write("No data available for CLV analysis in the selected filters.")
 
     # Export options
-    st.sidebar.header("📤 Export Options")
+    st.sidebar.header("📤 Export Option")
+    st.sidebar.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
     if st.sidebar.button("Generate PDF Report"):
         pdf_buffer = generate_pdf_report(filtered_transactions, basket_data, clv_data, cluster_stats)
         st.sidebar.download_button(
@@ -148,6 +229,7 @@ def transaction_analysis_page(offer_events, transaction_events):
             file_name="transaction_analysis_report.pdf",
             mime="application/pdf"
         )
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

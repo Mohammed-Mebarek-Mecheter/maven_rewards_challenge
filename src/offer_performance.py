@@ -1,3 +1,4 @@
+# pages/offer_performance.py
 import streamlit as st
 from datetime import timedelta
 from utils.data_loader import load_all_data
@@ -58,16 +59,66 @@ def filter_data(offer_events, transaction_events, start_date, end_date, selected
     return filtered_offers, filtered_transactions
 
 def offer_performance_page():
-    st.title("Offer Performance Analysis")
+    st.markdown('<h1 class="title">Offer Performance Analysis</h1>', unsafe_allow_html=True)
+    # Add CSS for custom styling
+    st.markdown("""
+                <style>
+                /* Page Title Styling */
+                .title {
+                    font-size: 2.5rem;
+                    font-weight: 700;
+                    color: #3e2a1e; /* Deep Coffee */
+                    margin-bottom: 2rem;
+                    text-align: center;
+                    animation: fadeInDown 1s ease;
+                }
+                /* Header Styling */
+                .header {
+                    font-size: 1.8rem;
+                    font-weight: 600;
+                    color: #3e2a1e; /* Deep Coffee */
+                    margin-bottom: 1rem;
+                    text-align: center;
+                    border-bottom: 2px solid #e0d9cf;
+                    padding-bottom: 0.5rem;
+                    animation: fadeInUp 1s ease;
+                }
+                .sidebar h2 {
+                    color: #3e2a1e; /* Deep Coffee */
+                }margin-bottom: 0.5rem;
+                }
+                /* Section Divider */
+                .section-divider {
+                    margin: 3rem 0;
+                    border-bottom: 2px solid #e0d9cf;
+                    animation: fadeIn 1s ease;
+                }
+                /* Fade-in Animations */
+                @keyframes fadeInDown {
+                    from { opacity: 0; transform: translateY(-20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes fadeInUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                </style>
+                """, unsafe_allow_html=True)
 
     # Load and preprocess data
     offer_events, transaction_events = get_preprocessed_data()
 
     # Sidebar for customizations
     st.sidebar.header("⚙️ Filters")
+    st.sidebar.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
     time_range = st.sidebar.slider("Select Time Range (days)", min_value=1, max_value=30, value=(1, 30))
     selected_offer_types = st.sidebar.multiselect("Select Offer Types", options=offer_events['offer_type'].unique(),
                                                   default=offer_events['offer_type'].unique())
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
     # Convert time_range to datetime objects
     min_date = offer_events['time'].min().date()
@@ -83,45 +134,57 @@ def offer_performance_page():
                                                                                             filtered_transactions)
 
     # Display the insights
-    st.header("📊 Key Insights")
+    #st.markdown('<h2 class="header">📊 Key Insights</h2>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
-    col1.metric("Top Offer Type", top_offer_type,
-                f"{offer_events_with_cluster.groupby('offer_type')['offer_success'].mean()[top_offer_type]:.2%}")
-    col2.metric("Best Responding Segment", f"Segment {top_segment}",
-                f"{offer_events_with_cluster.groupby('cluster')['offer_success'].mean()[top_segment]:.2%}")
-    col3.metric("Most Effective Channel", top_channel,
-                f"{offer_events_with_cluster.groupby('channels')['offer_success'].mean()[top_channel]:.2%}")
+    with col1:
+        st.markdown('<div class="metric-card"><div class="metric-value">' +
+                    top_offer_type +
+                    '</div><div class="metric-label">Top Offer Type</div></div>',
+                    unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="metric-card"><div class="metric-value">' +
+                    f"Segment {top_segment.astype('int64')}" +
+                    '</div><div class="metric-label">Best Responding Segment</div></div>',
+                    unsafe_allow_html=True)
+    with col3:
+        st.markdown('<div class="metric-card"><div class="metric-value">' +
+                    top_channel +
+                    '</div><div class="metric-label">Most Effective Channel</div></div>',
+                    unsafe_allow_html=True)
 
     # Offer Success Rate by Type
-    st.header("📈 Offer Performance Analysis")
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    #st.markdown('<h2 class="header">📈 Offer Performance Analysis</h2>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Success Rate by Offer Type")
+        st.markdown('<h3 class="sub-header">Success Rate by Offer Type</h3>', unsafe_allow_html=True)
         success_rate_chart = plot_success_rate_by_offer_type(offer_events_with_cluster)
         st.altair_chart(success_rate_chart, use_container_width=True)
 
     with col2:
-        st.subheader("Channel Effectiveness")
+        st.markdown('<h3 class="sub-header">Channel Effectiveness</h3>', unsafe_allow_html=True)
         channel_chart = plot_offer_completion_by_channel(offer_events_with_cluster)
         st.altair_chart(channel_chart, use_container_width=True)
 
     # Replace the large AgGrid table with two efficient visualizations
-    st.header("🔍 Detailed Data View")
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    #st.markdown('<h2 class="header">🔍 Detailed Data View</h2>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Customer Segment Distribution")
-        segment_distribution_chart = plot_segment_distribution(offer_events_with_cluster)
-        st.altair_chart(segment_distribution_chart, use_container_width=True)
-
-    with col2:
-        st.subheader("Channel Success Rate Over Time")
+        st.markdown('<h3 class="sub-header">Channel Success Rate Over Time</h3>', unsafe_allow_html=True)
         channel_success_chart = plot_channel_success_over_time(offer_events_with_cluster)
         st.altair_chart(channel_success_chart, use_container_width=True)
 
+    with col2:
+        st.markdown('<h3 class="sub-header">Customer Segment Distribution</h3>', unsafe_allow_html=True)
+        segment_distribution_chart = plot_segment_distribution(offer_events_with_cluster)
+        st.altair_chart(segment_distribution_chart, use_container_width=True)
+
     # Export options
-    st.sidebar.header("📤 Export Options")
+    st.sidebar.header("📤 Export Option")
+    st.sidebar.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
     if st.sidebar.button("Generate PDF Report"):
         pdf_buffer = generate_offer_performance_pdf(
             top_offer_type, top_segment, top_channel,
@@ -134,6 +197,7 @@ def offer_performance_page():
             file_name="offer_performance_report.pdf",
             mime="application/pdf"
         )
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

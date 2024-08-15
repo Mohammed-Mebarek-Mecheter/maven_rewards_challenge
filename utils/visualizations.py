@@ -44,7 +44,7 @@ def plot_success_rate_by_offer_type(offer_events_with_cluster):
         y=alt.Y('offer_success:Q', title='Success Rate', axis=alt.Axis(format='.0%')),
         tooltip=[alt.Tooltip('offer_type:N', title='Offer Type'),
                  alt.Tooltip('offer_success:Q', title='Success Rate', format='.2%')]
-    ).properties(title='Offer Success Rate by Type')
+    ).properties(title='')
 
 # Updated to use the processed channels column
 @st.cache_data
@@ -131,7 +131,7 @@ def plot_offer_completion_by_channel(offer_events_with_cluster):
         tooltip=[alt.Tooltip('channels:N', title='Channel'),
                  alt.Tooltip('offer_success:N', title='Offer Completion'),
                  alt.Tooltip('offer_id:Q', title='Count')]
-    ).properties(title='Offer Completion by Channel')
+    ).properties(title='')
 
 
 @st.cache_data
@@ -178,24 +178,40 @@ def plot_clv_distribution(clv_data):
         color=alt.value(primary_color)
     ).properties(title='')
 
+
+import plotly.graph_objects as go
+import streamlit as st
+
+
 @st.cache_data
 def plot_transaction_time_series(transaction_df):
     primary_color = st.get_option("theme.primaryColor")
-    daily_transactions = transaction_df.set_index('time').resample('D')['amount'].sum().reset_index()
 
+    # Resample the data by hours instead of days
+    hourly_transactions = transaction_df.set_index('time').resample('H')['amount'].sum().reset_index()
+
+    # Create the figure with hourly data
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=daily_transactions['time'], y=daily_transactions['amount'],
-                             mode='lines', name='Daily Transactions',
+    fig.add_trace(go.Scatter(x=hourly_transactions['time'], y=hourly_transactions['amount'],
+                             mode='lines', name='Hourly Transactions',
                              line=dict(color=primary_color)))
 
+    # Update layout to reflect hours on the x-axis
     fig.update_layout(
-        title='Daily Transaction Amounts Over Time',
-        xaxis_title='Date',
+        title='Hourly Transaction Amounts Over Time',
+        xaxis_title='Hours Passed',
         yaxis_title='Total Transaction Amount ($)',
         xaxis_rangeslider_visible=True
     )
 
+    # Format the x-axis labels to display as hours passed since the start
+    fig.update_xaxes(
+        tickformat="%H",  # Formats as hours
+        dtick=3600000  # Tick interval set to every hour (3600 seconds * 1000 ms)
+    )
+
     return fig
+
 
 @st.cache_data
 def plot_segment_distribution(offer_events_with_cluster):
@@ -207,7 +223,7 @@ def plot_segment_distribution(offer_events_with_cluster):
         x=alt.X('cluster:N', title='Customer Segment'),
         y=alt.Y('count:Q', title='Number of Customers'),
         tooltip=['cluster', 'count']
-    ).properties(title='Customer Segment Distribution')
+    ).properties(title='Number of Customers for each Segment')
 
 
 @st.cache_data
@@ -222,7 +238,7 @@ def plot_channel_success_over_time(offer_events_with_cluster):
         y=alt.Y('offer_success:Q', title='Success Rate', axis=alt.Axis(format='.0%')),
         color=alt.Color('channels:N', title='Channel', scale=alt.Scale(scheme='browns')),
         tooltip=['time', 'channels', 'offer_success']
-    ).properties(title='Channel Success Rate Over Time')
+    ).properties(title='')
 
 @st.cache_data
 def plot_segment_characteristics(cluster_stats):
