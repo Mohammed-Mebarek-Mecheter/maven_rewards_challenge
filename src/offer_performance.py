@@ -1,14 +1,14 @@
-# pages/offer_performance.py
+# src/offer_performance.py
 import streamlit as st
 from datetime import timedelta
 from utils.data_loader import load_all_data
 from utils.data_processor import (
     analyze_offer_performance,
-    create_customer_segments,
     preprocess_transaction_events,
     preprocess_offer_events,
     preprocess_channels
 )
+from utils.model_handler import apply_customer_segmentation
 from utils.visualizations import (
     plot_success_rate_by_offer_type,
     plot_offer_completion_by_channel,
@@ -18,24 +18,18 @@ from utils.visualizations import (
 from utils.pdf_generator import generate_offer_performance_pdf
 from st_aggrid import AgGrid, GridOptionsBuilder
 
-
 @st.cache_data
 def get_preprocessed_data():
     offer_events, transaction_events = load_all_data()
     offer_events = preprocess_offer_events(offer_events)
     transaction_events = preprocess_transaction_events(transaction_events)
-
-    # Preprocess the channels in offer_events
     offer_events = preprocess_channels(offer_events)
-
     return offer_events, transaction_events
-
 
 @st.cache_data
 def generate_insights(offer_events, transaction_events):
-    rfm_data = create_customer_segments(offer_events, transaction_events)
-    offer_events_with_cluster = offer_events.merge(rfm_data[['cluster']], left_on='customer_id', right_index=True,
-                                                   how='left')
+    rfm_data = apply_customer_segmentation(transaction_events)
+    offer_events_with_cluster = offer_events.merge(rfm_data[['cluster']], left_on='customer_id', right_index=True, how='left')
 
     success_rate = offer_events_with_cluster.groupby('offer_type')['offer_success'].mean().sort_values(ascending=False)
     top_offer_type = success_rate.idxmax()

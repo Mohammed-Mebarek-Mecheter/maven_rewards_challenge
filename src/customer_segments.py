@@ -2,12 +2,12 @@
 import streamlit as st
 from utils.data_loader import load_all_data
 from utils.data_processor import (
-    create_customer_segments,
     preprocess_offer_data,
     preprocess_transaction_data
 )
+from utils.model_handler import apply_customer_segmentation
 from utils.visualizations import (
-    plot_age_distribution,
+    plot_age_distribution_violin,
     plot_income_distribution,
     plot_rfm_clusters,
     plot_segment_distribution
@@ -15,12 +15,11 @@ from utils.visualizations import (
 from utils.pdf_generator import generate_customer_segments_pdf
 from st_aggrid import AgGrid, GridOptionsBuilder
 
-
 @st.cache_data
 def get_filtered_data(offer_events, transaction_events, selected_offer_types, min_amount, max_amount):
     filtered_offers = preprocess_offer_data(offer_events, selected_offer_types)
     filtered_transactions = preprocess_transaction_data(transaction_events, min_amount, max_amount)
-    rfm_data = create_customer_segments(filtered_offers, filtered_transactions)
+    rfm_data = apply_customer_segmentation(filtered_transactions)
     return filtered_offers, filtered_transactions, rfm_data
 
 def customer_segments_page():
@@ -136,7 +135,7 @@ def customer_segments_page():
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.markdown('<div class="metric-card"><div class="metric-value">' +
-                    f'{len(rfm_data)}' +
+                    f'{len(offer_events["customer_id"].unique()):,}' +
                     '</div><div class="metric-label">Total Customers</div></div>',
                     unsafe_allow_html=True)
     with col2:
@@ -211,7 +210,7 @@ def customer_segments_page():
     col1, col2 = st.columns(2)
 
     with col1:
-        age_chart = plot_age_distribution(filtered_offers)
+        age_chart = plot_age_distribution_violin(filtered_offers)
         st.altair_chart(age_chart, use_container_width=True)
 
     with col2:

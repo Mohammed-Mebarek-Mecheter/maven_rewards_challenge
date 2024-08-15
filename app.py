@@ -149,6 +149,7 @@ def main():
     elif selected == "Transaction Analysis":
         transaction_analysis_page(offer_events, transaction_events)
 
+
 def show_home_page(offer_events, transaction_events):
 
     # Display key metrics

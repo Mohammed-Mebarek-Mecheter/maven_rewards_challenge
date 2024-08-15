@@ -1,7 +1,7 @@
 # .streamlit/config.toml
 [theme]
-primaryColor = "#4b3a28"  # Rich Cocoa
+primaryColor = "#6f4f28"  # Rich Cocoa
 backgroundColor = "#f5f1e8"  # Cream
 secondaryBackgroundColor = "#dcd6c7"  # White
-textColor = "#6f4f28"  # Rich Cocoa
+textColor = "#4b3a28"  # Rich Cocoa
 font = "serif"

@@ -5,6 +5,8 @@ import pandas as pd
 from altair.vega import background
 from statsmodels.tsa.arima.model import ARIMA
 from st_aggrid import AgGrid, GridOptionsBuilder
+from utils.data_loader import load_transaction_events
+from utils.model_handler import apply_customer_segmentation
 from utils.visualizations import (
     plot_transaction_time_series,
     plot_weekly_transaction_trend,
@@ -19,9 +21,9 @@ from utils.data_processor import (
 )
 from utils.pdf_generator import generate_pdf_report
 
-
 @st.cache_data
-def preprocess_and_filter_transactions(transaction_events, start_date, end_date, transaction_amount_range):
+def preprocess_and_filter_transactions(start_date, end_date, transaction_amount_range):
+    transaction_events = load_transaction_events()
     transaction_events = preprocess_transaction_events(transaction_events)
     filtered_transactions = transaction_events[
         (transaction_events['time'].dt.date.between(start_date, end_date)) &
@@ -97,6 +99,13 @@ def transaction_analysis_page(offer_events, transaction_events):
     st.sidebar.header("⚙️ Filters")
     st.sidebar.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
     time_range = st.sidebar.slider("Select Time Range", min_value=1, max_value=30, value=(1, 30))
+    transaction_events = load_transaction_events()
+    if transaction_events['time'].dtype == 'int':
+        # Assuming time is in hours since the start
+        transaction_events['time'] = pd.to_datetime(transaction_events['time'], unit='h', origin='unix')
+        # Convert 'time' column to datetime if not already
+    transaction_events['time'] = pd.to_datetime(transaction_events['time'])
+
     min_date = transaction_events['time'].min().date()
     start_date = min_date + pd.to_timedelta(time_range[0] - 1, unit='D')
     end_date = min_date + pd.to_timedelta(time_range[1] - 1, unit='D')
@@ -106,8 +115,7 @@ def transaction_analysis_page(offer_events, transaction_events):
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
     # Preprocess and filter transaction events
-    filtered_transactions = preprocess_and_filter_transactions(transaction_events, start_date, end_date,
-                                                                transaction_amount_range)
+    filtered_transactions = preprocess_and_filter_transactions(start_date, end_date, transaction_amount_range)
 
     # Transaction Overview
     #st.markdown('<h2 class="header">📊 Transaction Overview</h2>', unsafe_allow_html=True)
@@ -159,9 +167,9 @@ def transaction_analysis_page(offer_events, transaction_events):
                gridOptions=gridOptions,
                height=170)
 
-    st.markdown('<h3 class="sub-header">Daily Transactions</h3>', unsafe_allow_html=True)
-    fig_time_series = plot_transaction_time_series(filtered_transactions)
-    st.plotly_chart(fig_time_series, use_container_width=True)
+    # st.markdown('<h3 class="sub-header">Daily Transactions</h3>', unsafe_allow_html=True)
+    # fig_time_series = plot_transaction_time_series(filtered_transactions)
+    # st.plotly_chart(fig_time_series, use_container_width=True)
 
     # Basket Analysis
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)

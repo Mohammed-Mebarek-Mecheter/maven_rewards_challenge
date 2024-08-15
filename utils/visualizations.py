@@ -7,13 +7,26 @@ import plotly.graph_objects as go
 
 
 @st.cache_data
-def plot_age_distribution(filtered_data):
+def plot_age_distribution_violin(filtered_data):
     primary_color = st.get_option("theme.primaryColor")
-    return alt.Chart(filtered_data).mark_bar(color=primary_color).encode(
-        x=alt.X('age:Q', bin=alt.Bin(maxbins=20), title='Age'),
-        y=alt.Y('count()', title='Number of Customers'),
-        tooltip=[alt.Tooltip('age:Q', title='Age'), alt.Tooltip('count()', title='Number of Customers')]
+    return alt.Chart(filtered_data).transform_density(
+        'age',
+        as_=['age', 'density'],
+        extent=[filtered_data['age'].min(), filtered_data['age'].max()]
+    ).mark_area(color=primary_color).encode(
+        x=alt.X('age:Q', title='Age'),
+        y=alt.Y('density:Q', title='Density'),
+        tooltip=[alt.Tooltip('age:Q', title='Age'), alt.Tooltip('density:Q', title='Density')]
     ).properties(title='Age Distribution')
+
+
+# def plot_age_distribution(filtered_data):
+#     primary_color = st.get_option("theme.primaryColor")
+#     return alt.Chart(filtered_data).mark_bar(color=primary_color).encode(
+#         x=alt.X('age:Q', bin=alt.Bin(maxbins=20), title='Age'),
+#         y=alt.Y('count()', title='Number of Customers'),
+#         tooltip=[alt.Tooltip('age:Q', title='Age'), alt.Tooltip('count()', title='Number of Customers')]
+#     ).properties(title='Age Distribution')
 
 @st.cache_data
 def plot_income_distribution(filtered_data):
