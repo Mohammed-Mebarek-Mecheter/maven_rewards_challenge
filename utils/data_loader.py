@@ -1,24 +1,12 @@
 # utils/data_loader.py
 import os
-from pyspark.sql import SparkSession
-import streamlit as st
 import pandas as pd
-
-@st.cache_resource
-def get_spark_session():
-    """Initialize and cache a Spark session."""
-    return SparkSession.builder \
-        .appName("MavenRewards") \
-        .config("spark.driver.memory", "4g") \
-        .config("spark.executor.memory", "4g") \
-        .getOrCreate()
+import streamlit as st
 
 @st.cache_data(ttl=3600)  # Cache with a time-to-live (TTL) of 1 hour
 def load_parquet_data(file_path):
-    """Load data from a Parquet file using Spark and convert to Pandas."""
-    spark = get_spark_session()
-    df = spark.read.parquet(file_path)
-    return df.toPandas()  # Convert to Pandas DataFrame
+    """Load data from a Parquet file using Pandas."""
+    return pd.read_parquet(file_path)
 
 @st.cache_data(ttl=3600)
 def load_transaction_events():

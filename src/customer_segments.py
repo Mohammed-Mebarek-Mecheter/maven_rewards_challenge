@@ -1,5 +1,7 @@
 # src/customer_segments.py
 import streamlit as st
+from st_aggrid import GridOptionsBuilder, AgGrid
+
 from utils.data_loader import load_all_data
 from utils.data_processor import (
     preprocess_offer_data,
@@ -96,9 +98,6 @@ def customer_segments_page():
         col2.markdown(display_metric_card(f'${segment_data["monetary"].mean():.2f}', 'Avg. Monetary Value'),
                       unsafe_allow_html=True)
 
-        st.markdown('<h3 class="sub-header">Segment Characteristics</h3>', unsafe_allow_html=True)
-        st.altair_chart(plot_segment_characteristics(segment_data), use_container_width=True)
-
     # RFM Cluster Visualization
     st.markdown('<h3 class="sub-header">RFM Cluster Visualization</h3>', unsafe_allow_html=True)
     view_type = st.radio("Select View", ("2D", "3D"), key="view_type_radio")
@@ -107,14 +106,34 @@ def customer_segments_page():
     else:
         st.plotly_chart(plot_customer_segments_interactive(rfm_data), use_container_width=True)
 
-    # Customer Lifetime Value Distribution
-    st.markdown('<h3 class="sub-header">Customer Lifetime Value Distribution</h3>', unsafe_allow_html=True)
-    st.altair_chart(plot_clv_distribution(advanced_metrics['clv_data']), use_container_width=True)
+    # AgGrid table
+    gb = GridOptionsBuilder.from_dataframe(segment_data)
+    gb.configure_pagination(paginationAutoPageSize=True)
+    gb.configure_side_bar()
+    gb.configure_default_column(groupable=True, value=True, enableRowGroup=True, aggFunc="sum", editable=True)
+    gb.configure_grid_options(
+        rowStyle={"color": "#6f4f28", "background-color": "#dcd6c7"},
+        headerStyle={"color": "#000", "background-color": "#dcd6c7"},
+    )
+    gridOptions = gb.build()
+
+    st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        AgGrid(segment_data, gridOptions=gridOptions, theme="streamlit", height=300, enable_enterprise_modules=True)
+
+    # Segment Distribution Chart
+    with col2:
+        segment_distribution_chart = plot_segment_distribution(rfm_data)
+        st.altair_chart(segment_distribution_chart, use_container_width=True)
 
     # Segment Distribution
     st.markdown('<h3 class="sub-header">Demographics vs RFM Metrics</h3>', unsafe_allow_html=True)
     correlation_heatmap = create_correlation_heatmap(filtered_offers, rfm_data)
     st.altair_chart(correlation_heatmap, use_container_width=True)
+
+    st.markdown('<h3 class="sub-header">Segment Characteristics</h3>', unsafe_allow_html=True)
+    st.altair_chart(plot_segment_characteristics(segment_data), use_container_width=True)
 
     # Export options
     st.sidebar.header("📤 Export Option")

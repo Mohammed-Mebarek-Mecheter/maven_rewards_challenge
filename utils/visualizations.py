@@ -432,40 +432,6 @@ def plot_offer_performance_over_time(offer_events_with_cluster):
     return fig
 
 @st.cache_data
-def plot_redemption_rate(redemption_rate):
-    """Plot the redemption rate by offer type."""
-    return alt.Chart(redemption_rate.reset_index()).mark_bar().encode(
-        x=alt.X('offer_type:N', title='Offer Type'),
-        y=alt.Y('offer_success:Q', title='Redemption Rate', axis=alt.Axis(format='.0%')),
-        color=alt.Color('offer_type:N', legend=None)
-    ).properties(title='Redemption Rate by Offer Type')
-
-@st.cache_data
-def plot_customer_retention_rate(retention_rate):
-    """Plot customer retention rate over time."""
-    return alt.Chart(retention_rate.reset_index()).mark_line().encode(
-        x=alt.X('time:T', title='Date'),
-        y=alt.Y('retention_rate:Q', title='Retention Rate', axis=alt.Axis(format='.0%'))
-    ).properties(title='Customer Retention Rate Over Time')
-
-@st.cache_data
-def plot_time_to_redemption(time_to_redemption):
-    """Plot distribution of time to redemption."""
-    return alt.Chart(time_to_redemption.reset_index()).mark_bar().encode(
-        x=alt.X('offer_type:N', title='Offer Type'),
-        y=alt.Y('time_to_redemption:Q', title='Average Time to Redemption (Days)')
-    ).properties(title='Time to Redemption by Offer Type')
-
-@st.cache_data
-def plot_churn_rate(churn_rate):
-    """Plot churn rate by offer type and segment."""
-    return alt.Chart(churn_rate.reset_index()).mark_bar().encode(
-        x=alt.X('offer_type:N', title='Offer Type'),
-        y=alt.Y('churn_rate:Q', title='Churn Rate', axis=alt.Axis(format='.0%')),
-        color=alt.Color('offer_type:N', legend=None)
-    ).properties(title='Churn Rate by Offer Type and Segment')
-
-@st.cache_data
 def plot_offer_response_time_distribution(response_time_distribution):
     """Plot offer response time distribution by segment."""
     return alt.Chart(response_time_distribution.reset_index()).mark_boxplot().encode(
@@ -473,3 +439,47 @@ def plot_offer_response_time_distribution(response_time_distribution):
         y=alt.Y('time_to_redemption:Q', title='Response Time (Days)'),
         color=alt.Color('offer_type:N', legend=None)
     ).properties(title='Offer Response Time Distribution by Segment')
+
+@st.cache_data
+def plot_offer_performance_heatmap(offer_data):
+    """
+    Generates a heatmap showing the average success rate of offers by offer type.
+
+    Args:
+        offer_data (pd.DataFrame): DataFrame containing offer data.
+
+    Returns:
+        Altair chart: Heatmap visualization.
+    """
+    # Since 'cluster' is not present, we'll focus on 'offer_type' and 'offer_success'
+    performance = offer_data.groupby('offer_type')['offer_success'].mean().reset_index()
+
+    heatmap = alt.Chart(performance).mark_rect().encode(
+        x=alt.X('offer_type:O', title='Offer Type'),
+        y=alt.Y('offer_success:Q', title='Average Success Rate', axis=alt.Axis(format='%')),
+        color=alt.Color('offer_success:Q', scale=alt.Scale(scheme='browns')),
+        tooltip=['offer_type', 'offer_success']
+    ).properties(
+        title=''
+    )
+
+    return heatmap
+
+@st.cache_data
+def plot_offer_funnel(offer_data):
+    funnel_data = offer_data.groupby('event').size().reset_index(name='count')
+    funnel_data = funnel_data.sort_values('count', ascending=False)
+
+    # Define the color scale to match Altair's 'browns' scheme
+    colors = ['#fff7e6', '#fee0b6', '#fdb863', '#e66101', '#b35806', '#7f3b08', '#543005', '#8c510a', '#d7301f', '#f46d43', '#a50026']
+
+    fig = go.Figure(go.Funnel(
+        y=funnel_data['event'],
+        x=funnel_data['count'],
+        textinfo="value+percent initial",
+        marker=dict(color=colors[:len(funnel_data)])
+    ))
+
+    fig.update_layout(title='')
+    return fig
+

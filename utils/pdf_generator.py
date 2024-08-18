@@ -1,6 +1,7 @@
 # utils/pdf_generator.py
 import pandas as pd
 import plotly.io as pio
+from pygments.lexers import go
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib import colors
@@ -78,9 +79,7 @@ def generate_pdf_report(filtered_transactions, basket_data, clv_data, cluster_st
     buffer.close()
     return pdf
 
-def generate_offer_performance_pdf(top_offer_type, top_segment, top_channel, top_roi_offer,
-                                   offer_events_with_cluster,
-                                   success_rate_chart, channel_chart, performance_over_time_chart):
+def generate_offer_performance_pdf(insights):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     elements = []
@@ -93,43 +92,35 @@ def generate_offer_performance_pdf(top_offer_type, top_segment, top_channel, top
     # Key Insights
     elements.append(Paragraph("Key Insights", styles['Heading2']))
     insights_data = [
-        ["Top Offer Type", top_offer_type, f"{offer_events_with_cluster.groupby('offer_type')['offer_success'].mean()[top_offer_type]:.2%}"],
-        ["Best Responding Segment", f"Segment {top_segment}", f"{offer_events_with_cluster.groupby('cluster')['offer_success'].mean()[top_segment]:.2%}"],
-        ["Most Effective Channel", top_channel, f"{offer_events_with_cluster.explode('channels').groupby('channels')['offer_success'].mean()[top_channel]:.2%}"],
-        ["Highest ROI Offer", top_roi_offer, f"{offer_events_with_cluster.groupby('offer_type')['roi'].mean()[top_roi_offer]:.2%}"]
+        ["Metric", "Value"],
+        ["Top Offer Type", f"{insights['top_offer_type']} ({insights['top_offer_type_rate']:.2%})"],
+        ["Best Responding Segment", f"Segment {insights['top_segment']} ({insights['top_segment_rate']:.2%})"],
+        ["Most Effective Channel", f"{insights['top_channel']} ({insights['top_channel_rate']:.2%})"],
+        ["Total Revenue", f"${insights['total_revenue']:,.2f}"],
+        ["Average Transaction Value", f"${insights['avg_transaction_value']:.2f}"],
+        ["Total Offers", f"{insights['total_offers']:,}"],
+        ["Offer Completion Rate", f"{insights['offer_completion_rate']:.2%}"]
     ]
     insights_table = Table(insights_data)
     insights_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.beige),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
         ('GRID', (0, 0), (-1, -1), 1, colors.black)
     ]))
     elements.append(insights_table)
     elements.append(Spacer(1, 12))
 
-    # Charts
-    for title, chart in [("Offer Success Rate by Type", success_rate_chart),
-                         ("Channel Effectiveness", channel_chart),
-                         ("Offer Performance Over Time", performance_over_time_chart)]:
-        elements.append(Paragraph(title, styles['Heading2']))
-        elements.append(Spacer(1, 12))
-        img = tempfile.NamedTemporaryFile(suffix=".png")
-        pio.write_image(chart, img.name)  # Use plotly.io to save Plotly figure as image
-        elements.append(Image(img.name, width=400, height=200))
-        elements.append(Spacer(1, 12))
-
     # Additional Analysis
     elements.append(Paragraph("Additional Analysis", styles['Heading2']))
-    elements.append(Paragraph("1. ROI Analysis: The offer with the highest ROI is " + top_roi_offer +
-                              ". This suggests that this offer type provides the best return on investment and should be considered for future campaigns.", styles['BodyText']))
-    elements.append(Paragraph("2. Segment Targeting: Segment " + str(top_segment) +
-                              " shows the highest response rate to offers. Consider tailoring future campaigns to this segment's preferences and behaviors.", styles['BodyText']))
-    elements.append(Paragraph("3. Channel Optimization: " + top_channel +
-                              " is the most effective channel for offer distribution. Consider allocating more resources to this channel in future campaigns.", styles['BodyText']))
+    elements.append(Paragraph(f"1. Offer Type Performance: The {insights['top_offer_type']} offer type shows the highest success rate at {insights['top_offer_type_rate']:.2%}.", styles['BodyText']))
+    elements.append(Paragraph(f"2. Customer Segmentation: Segment {insights['top_segment']} shows the highest response rate to offers at {insights['top_segment_rate']:.2%}.", styles['BodyText']))
+    elements.append(Paragraph(f"3. Channel Optimization: The {insights['top_channel']} channel is the most effective for offer distribution with a success rate of {insights['top_channel_rate']:.2%}.", styles['BodyText']))
+    elements.append(Paragraph(f"4. Overall Performance: The campaign achieved a total revenue of ${insights['total_revenue']:,.2f} with an average transaction value of ${insights['avg_transaction_value']:.2f}. The overall offer completion rate was {insights['offer_completion_rate']:.2%}.", styles['BodyText']))
 
     doc.build(elements)
     pdf = buffer.getvalue()

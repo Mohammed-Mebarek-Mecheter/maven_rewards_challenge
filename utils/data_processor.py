@@ -176,31 +176,11 @@ def calculate_segment_stats(basket_data):
     cluster_stats.index.name = 'Segment'
     return cluster_stats
 
-
 @st.cache_data
-def calculate_advanced_offer_metrics(offer_events_with_cluster, transaction_events):
-    """Calculate advanced offer metrics such as redemption rate, churn rate, etc."""
-
-    # Redemption Rate
-    redemption_rate = offer_events_with_cluster.groupby('offer_type')['offer_success'].mean()
-
-    # Customer Retention Rate
-    retention_rate = transaction_events.groupby(transaction_events['time'].dt.date).size().pct_change().fillna(0)
-
-    # Time to Redemption (Assume 'time' is in hours, convert to days)
-    offer_events_with_cluster['time_to_redemption'] = offer_events_with_cluster['time'] / 24
-    time_to_redemption = offer_events_with_cluster[offer_events_with_cluster['offer_success']].groupby('offer_type')['time_to_redemption'].mean()
-
-    # Churn Rate (Customers who did not return)
-    churn_rate = 1 - retention_rate
-
-    # Offer Response Time Distribution
-    response_time_distribution = offer_events_with_cluster.groupby(['cluster', 'offer_type'])['time_to_redemption'].median()
-
-    return {
-        "redemption_rate": redemption_rate,
-        "retention_rate": retention_rate,
-        "time_to_redemption": time_to_redemption,
-        "churn_rate": churn_rate,
-        "response_time_distribution": response_time_distribution
-    }
+def filter_data(df, time_range, offer_types=None, customer_segments=None):
+    filtered_df = df[(df['time'] >= time_range[0]) & (df['time'] <= time_range[1])]
+    if offer_types:
+        filtered_df = filtered_df[filtered_df['offer_type'].isin(offer_types)]
+    if customer_segments:
+        filtered_df = filtered_df[filtered_df['cluster'].isin(customer_segments)]
+    return filtered_df
