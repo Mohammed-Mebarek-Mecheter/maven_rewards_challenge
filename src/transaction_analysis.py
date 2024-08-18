@@ -1,18 +1,15 @@
 # src/transaction_analysis.py
 import streamlit as st
-import altair as alt
 import pandas as pd
-from altair.vega import background
 from statsmodels.tsa.arima.model import ARIMA
 from st_aggrid import AgGrid, GridOptionsBuilder
 from utils.data_loader import load_transaction_events
 from utils.model_handler import apply_customer_segmentation
 from utils.visualizations import (
-    plot_transaction_time_series,
     plot_weekly_transaction_trend,
     plot_basket_analysis,
     plot_clv_distribution,
-    plot_segment_characteristics
+    plot_transaction_forecast
 )
 from utils.data_processor import (
     preprocess_transaction_events,
@@ -20,6 +17,7 @@ from utils.data_processor import (
     create_basket_data
 )
 from utils.pdf_generator import generate_pdf_report
+from utils.styles import load_css
 
 @st.cache_data
 def preprocess_and_filter_transactions(start_date, end_date, transaction_amount_range):
@@ -43,57 +41,8 @@ def generate_forecast(daily_transactions, steps=30):
 
 def transaction_analysis_page(offer_events, transaction_events):
     st.markdown('<h1 class="title">Transaction Analysis</h1>', unsafe_allow_html=True)
-    # Add CSS for custom styling
-    st.markdown("""
-            <style>
-            /* Page Title Styling */
-            .title {
-                font-size: 2.5rem;
-                font-weight: 700;
-                color: #3e2a1e; /* Deep Coffee */
-                margin-bottom: 2rem;
-                text-align: center;
-                animation: fadeInDown 1s ease;
-            }
-            /* Header Styling */
-            .header {
-                font-size: 1.8rem;
-                font-weight: 600;
-                color: #3e2a1e; /* Deep Coffee */
-                margin-bottom: 1rem;
-                text-align: center;
-                border-bottom: 2px solid #e0d9cf;
-                padding-bottom: 0.5rem;
-                animation: fadeInUp 1s ease;
-            }
-            .sidebar h2 {
-                color: #3e2a1e; /* Deep Coffee */
-            }margin-bottom: 0.5rem;
-            }
-            /* Section Divider */
-            .section-divider {
-                margin: 3rem 0;
-                border-bottom: 2px solid #e0d9cf;
-                animation: fadeIn 1s ease;
-            }
-            /* Fade-in Animations */
-            @keyframes fadeInDown {
-                from { opacity: 0; transform: translateY(-20px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            @keyframes fadeInUp {
-                from { opacity: 0; transform: translateY(20px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            :root {
-                --primary-bg-color: #000;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+    # Load CSS
+    st.markdown(load_css(), unsafe_allow_html=True)
 
     # Sidebar for filters
     st.sidebar.header("⚙️ Filters")
@@ -186,15 +135,8 @@ def transaction_analysis_page(offer_events, transaction_events):
         daily_transactions = filtered_transactions.set_index('time')['amount'].resample('D').sum()
         forecast_df, historical_df = generate_forecast(daily_transactions)
 
-        forecast_chart = alt.Chart(forecast_df).mark_line(color='#000').encode(
-            x='date:T',
-            y='forecast:Q'
-        )
-        historical_chart = alt.Chart(historical_df).mark_line(color='#6f4f28').encode(
-            x='date:T',
-            y='actual:Q'
-        ).properties(title='')
-        st.altair_chart(historical_chart + forecast_chart, use_container_width=True)
+        forecast_chart = plot_transaction_forecast(forecast_df, historical_df)
+        st.altair_chart(forecast_chart, use_container_width=True)
 
 
     # Customer Lifetime Value (CLV) Analysis
@@ -202,29 +144,29 @@ def transaction_analysis_page(offer_events, transaction_events):
     #st.markdown('<h2 class="header">💰 Customer Lifetime Value Analysis</h2>', unsafe_allow_html=True)
     clv_data = analyze_customer_lifetime_value(filtered_transactions)
 
-    if not clv_data.empty:
-        col1, col2 = st.columns(2)
+    # if not clv_data.empty:
+    #     col1, col2 = st.columns(2)
+    #
+    #     with col1:
+    #         st.markdown('<h3 class="sub-header">Distribution of CLV</h3>', unsafe_allow_html=True)
+    #         fig_clv = plot_clv_distribution(clv_data)
+    #         st.altair_chart(fig_clv, use_container_width=True)
 
-        with col1:
-            st.markdown('<h3 class="sub-header">Distribution of CLV</h3>', unsafe_allow_html=True)
-            fig_clv = plot_clv_distribution(clv_data)
-            st.altair_chart(fig_clv, use_container_width=True)
+    st.markdown('<h3 class="sub-header">Top Customers by CLV</h3>', unsafe_allow_html=True)
+    top_customers = clv_data.sort_values(by='total_spend', ascending=False).head(10)
+    if 'customer_id' in top_customers.columns:
+        gb = GridOptionsBuilder.from_dataframe(top_customers[['customer_id', 'total_spend', 'annual_value']])
+        gb.configure_default_column(min_column_width=120)
+        gridOptions = gb.build()
 
-        with col2:
-            st.markdown('<h3 class="sub-header">Top Customers by CLV</h3>', unsafe_allow_html=True)
-            top_customers = clv_data.sort_values(by='total_spend', ascending=False).head(10)
-            if 'customer_id' in top_customers.columns:
-                gb = GridOptionsBuilder.from_dataframe(top_customers[['customer_id', 'total_spend', 'annual_value']])
-                gb.configure_default_column(min_column_width=120)
-                gridOptions = gb.build()
-
-                AgGrid(top_customers[['customer_id', 'total_spend', 'annual_value']],
-                       gridOptions=gridOptions,
-                       height=350)
-            else:
-                st.write(top_customers)
+        AgGrid(top_customers[['customer_id', 'total_spend', 'annual_value']],
+               gridOptions=gridOptions,
+               height=350)
     else:
-        st.write("No data available for CLV analysis in the selected filters.")
+        st.write(top_customers)
+
+    # else:
+    #     st.write("No data available for CLV analysis in the selected filters.")
 
     # Export options
     st.sidebar.header("📤 Export Option")

@@ -78,9 +78,9 @@ def generate_pdf_report(filtered_transactions, basket_data, clv_data, cluster_st
     buffer.close()
     return pdf
 
-def generate_offer_performance_pdf(top_offer_type, top_segment, top_channel,
-                                   offer_events_with_cluster, performance_df,
-                                   success_rate_chart, channel_chart, performance_chart):
+def generate_offer_performance_pdf(top_offer_type, top_segment, top_channel, top_roi_offer,
+                                   offer_events_with_cluster,
+                                   success_rate_chart, channel_chart, performance_over_time_chart):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     elements = []
@@ -95,7 +95,8 @@ def generate_offer_performance_pdf(top_offer_type, top_segment, top_channel,
     insights_data = [
         ["Top Offer Type", top_offer_type, f"{offer_events_with_cluster.groupby('offer_type')['offer_success'].mean()[top_offer_type]:.2%}"],
         ["Best Responding Segment", f"Segment {top_segment}", f"{offer_events_with_cluster.groupby('cluster')['offer_success'].mean()[top_segment]:.2%}"],
-        ["Most Effective Channel", top_channel, f"{offer_events_with_cluster.explode('channels').groupby('channels')['offer_success'].mean()[top_channel]:.2%}"]
+        ["Most Effective Channel", top_channel, f"{offer_events_with_cluster.explode('channels').groupby('channels')['offer_success'].mean()[top_channel]:.2%}"],
+        ["Highest ROI Offer", top_roi_offer, f"{offer_events_with_cluster.groupby('offer_type')['roi'].mean()[top_roi_offer]:.2%}"]
     ]
     insights_table = Table(insights_data)
     insights_table.setStyle(TableStyle([
@@ -113,13 +114,22 @@ def generate_offer_performance_pdf(top_offer_type, top_segment, top_channel,
     # Charts
     for title, chart in [("Offer Success Rate by Type", success_rate_chart),
                          ("Channel Effectiveness", channel_chart),
-                         ("Offer Performance by Customer Segment", performance_chart)]:
+                         ("Offer Performance Over Time", performance_over_time_chart)]:
         elements.append(Paragraph(title, styles['Heading2']))
         elements.append(Spacer(1, 12))
         img = tempfile.NamedTemporaryFile(suffix=".png")
-        chart.save(img.name)
+        pio.write_image(chart, img.name)  # Use plotly.io to save Plotly figure as image
         elements.append(Image(img.name, width=400, height=200))
         elements.append(Spacer(1, 12))
+
+    # Additional Analysis
+    elements.append(Paragraph("Additional Analysis", styles['Heading2']))
+    elements.append(Paragraph("1. ROI Analysis: The offer with the highest ROI is " + top_roi_offer +
+                              ". This suggests that this offer type provides the best return on investment and should be considered for future campaigns.", styles['BodyText']))
+    elements.append(Paragraph("2. Segment Targeting: Segment " + str(top_segment) +
+                              " shows the highest response rate to offers. Consider tailoring future campaigns to this segment's preferences and behaviors.", styles['BodyText']))
+    elements.append(Paragraph("3. Channel Optimization: " + top_channel +
+                              " is the most effective channel for offer distribution. Consider allocating more resources to this channel in future campaigns.", styles['BodyText']))
 
     doc.build(elements)
     pdf = buffer.getvalue()

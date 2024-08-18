@@ -1,30 +1,34 @@
 # utils/data_loader.py
 import os
-import sqlite3
+from pyspark.sql import SparkSession
 import streamlit as st
 import pandas as pd
 
-def get_database_connection():
-    # Get the absolute path to the database file
-    db_path = os.path.join(os.path.dirname(__file__), '../data/maven_rewards.db')
-    # Create a new connection with check_same_thread set to False
-    return sqlite3.connect(db_path, check_same_thread=False)
+@st.cache_resource
+def get_spark_session():
+    """Initialize and cache a Spark session."""
+    return SparkSession.builder \
+        .appName("MavenRewards") \
+        .config("spark.driver.memory", "4g") \
+        .config("spark.executor.memory", "4g") \
+        .getOrCreate()
 
-@st.cache_data(ttl=3600)
-def load_offer_events():
-    conn = get_database_connection()
-    try:
-        return pd.read_sql_query("SELECT * FROM offer_events", conn)
-    finally:
-        conn.close()
+@st.cache_data(ttl=3600)  # Cache with a time-to-live (TTL) of 1 hour
+def load_parquet_data(file_path):
+    """Load data from a Parquet file using Spark and convert to Pandas."""
+    spark = get_spark_session()
+    df = spark.read.parquet(file_path)
+    return df.toPandas()  # Convert to Pandas DataFrame
 
 @st.cache_data(ttl=3600)
 def load_transaction_events():
-    conn = get_database_connection()
-    try:
-        return pd.read_sql_query("SELECT * FROM transaction_events", conn)
-    finally:
-        conn.close()
+    df = load_parquet_data("data/transaction_events.parquet")
+    df['time'] = pd.to_datetime(df['time'], unit='h', origin='unix')  # Ensure datetime conversion is consistent
+    return df
+
+@st.cache_data(ttl=3600)
+def load_offer_events():
+    return load_parquet_data("data/offer_events.parquet")
 
 @st.cache_data(ttl=3600)
 def load_all_data():
