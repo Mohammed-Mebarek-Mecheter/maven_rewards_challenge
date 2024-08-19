@@ -42,7 +42,7 @@ def display_metric_card(value, label):
     '''
 
 def customer_segments_page():
-    st.markdown('<h1 class="title">Customer Segmentation Analysis</h1>', unsafe_allow_html=True)
+    # st.markdown('<h1 class="title">Customer Segmentation Analysis</h1>', unsafe_allow_html=True)
 
     # Load CSS
     st.markdown(load_css(), unsafe_allow_html=True)
@@ -99,7 +99,7 @@ def customer_segments_page():
                       unsafe_allow_html=True)
 
     # RFM Cluster Visualization
-    st.markdown('<h3 class="sub-header">RFM Cluster Visualization</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 class="sub-header">RFM Clusters</h3>', unsafe_allow_html=True)
     view_type = st.radio("Select View", ("2D", "3D"), key="view_type_radio")
     if view_type == "2D":
         st.altair_chart(plot_rfm_clusters(rfm_data), use_container_width=True)

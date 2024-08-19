@@ -40,7 +40,7 @@ def generate_forecast(daily_transactions, steps=30):
     return forecast_df, historical_df
 
 def transaction_analysis_page(offer_events, transaction_events):
-    st.markdown('<h1 class="title">Transaction Analysis</h1>', unsafe_allow_html=True)
+    # st.markdown('<h1 class="title">Transaction Analysis</h1>', unsafe_allow_html=True)
     # Load CSS
     st.markdown(load_css(), unsafe_allow_html=True)
 
@@ -91,7 +91,7 @@ def transaction_analysis_page(offer_events, transaction_events):
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        st.markdown('<h3 class="sub-header">Weekly Trend</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 class="sub-header">Weekly Transaction Trend</h3>', unsafe_allow_html=True)
         fig_weekly = plot_weekly_transaction_trend(filtered_transactions)
         st.altair_chart(fig_weekly, use_container_width=True)
 

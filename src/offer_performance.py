@@ -10,9 +10,7 @@ from utils.data_processor import (
 )
 from utils.model_handler import apply_customer_segmentation
 from utils.visualizations import (
-    plot_success_rate_by_offer_type,
     plot_offer_completion_by_channel,
-    plot_segment_distribution,
     plot_channel_success_over_time,
     plot_offer_age_heatmap,
     plot_offer_performance_heatmap,
@@ -88,7 +86,7 @@ def display_metric_card(value, label):
     '''
 
 def offer_performance_page():
-    st.markdown('<h1 class="title">Offer Performance Analysis</h1>', unsafe_allow_html=True)
+    # st.markdown('<h1 class="title">Offer Performance Analysis</h1>', unsafe_allow_html=True)
     st.markdown(load_css(), unsafe_allow_html=True)  # Load custom CSS for styling
 
     # Load and preprocess data
@@ -167,12 +165,12 @@ def offer_performance_page():
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown('<h3 class="sub-header">Offer Performance Rate</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 class="sub-header">Offer Success Rate</h3>', unsafe_allow_html=True)
         offer_performance_heatmap = plot_offer_performance_heatmap(filtered_offers)
         st.altair_chart(offer_performance_heatmap, use_container_width=True)
 
     with col2:
-        st.markdown('<h3 class="sub-header">Offer Type Distribution</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 class="sub-header">Customer Activity</h3>', unsafe_allow_html=True)
         offer_funnel = plot_offer_funnel(filtered_offers)
         st.plotly_chart(offer_funnel, use_container_width=True)
 
